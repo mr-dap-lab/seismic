@@ -38,6 +38,11 @@ test("wires PDF, keyless 3D regional mapping, parameter help, and Vercel configu
   assert.match(regional, /source: "openmaptiles"/);
   assert.doesNotMatch(regional, /styles\/bright/);
   assert.match(regional, /3D district/);
+  assert.match(regional, /useState\(false\)/);
+  assert.match(regional, /regional-map-preloader/);
+  assert.match(regional, /Preparing 3D/);
+  assert.match(regional, /aria-pressed=/);
+  assert.match(regional, /visibility", "none"/);
   assert.match(regional, /Click anywhere on the map/);
   assert.match(tooltip, /role="tooltip"/);
   assert.match(tooltip, /aria-describedby/);

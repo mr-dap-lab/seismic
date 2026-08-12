@@ -129,14 +129,17 @@ function zoneData(center: Coordinate, radius: number): FeatureCollection<Polygon
 
 export default function RegionalSimulator() {
   const mapRef = useRef<HTMLDivElement>(null);
+  const preloadMapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<Map | null>(null);
+  const preloadInstanceRef = useRef<Map | null>(null);
   const [cityIndex, setCityIndex] = useState(0);
   const [center, setCenter] = useState<Coordinate>({ lat: CITIES[0].lat, lng: CITIES[0].lng });
   const [magnitude, setMagnitude] = useState(7.2);
   const [depth, setDepth] = useState(12);
   const [radius, setRadius] = useState(45);
   const [siteClass, setSiteClass] = useState<SiteClass>(CITIES[0].site);
-  const [view3D, setView3D] = useState(true);
+  const [view3D, setView3D] = useState(false);
+  const [view3DReady, setView3DReady] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
 
@@ -156,9 +159,9 @@ export default function RegionalSimulator() {
         container,
         style: MAP_STYLE,
         center: [CITIES[0].lng, CITIES[0].lat],
-        zoom: 15.5,
-        pitch: 55,
-        bearing: -18,
+        zoom: 9,
+        pitch: 0,
+        bearing: 0,
         canvasContextAttributes: { antialias: true },
       });
     } catch {
@@ -198,6 +201,7 @@ export default function RegionalSimulator() {
           source: "openmaptiles",
           "source-layer": "building",
           minzoom: 15,
+          layout: { visibility: "none" },
           filter: ["!=", ["get", "hide_3d"], true],
           paint: {
             "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 6], 0, "#c7cec9", 80, "#d4aa83", 220, "#e6663f"],
@@ -218,12 +222,47 @@ export default function RegionalSimulator() {
       }
       map.resize();
       setMapReady(true);
+
+      // Warm the high-zoom building tiles and compile the extrusion layer in a
+      // small off-screen map. The visible 2D overview stays fast and stable.
+      if (preloadMapRef.current && !preloadInstanceRef.current) {
+        const preloadMap = new Map({
+          container: preloadMapRef.current,
+          style: MAP_STYLE,
+          center: [CITIES[0].lng, CITIES[0].lat],
+          zoom: 15.5,
+          pitch: 55,
+          bearing: -18,
+          interactive: false,
+          attributionControl: false,
+          canvasContextAttributes: { antialias: true },
+        });
+        preloadInstanceRef.current = preloadMap;
+        preloadMap.on("style.load", () => {
+          preloadMap.addLayer({
+            id: "preload-3d-buildings",
+            type: "fill-extrusion",
+            source: "openmaptiles",
+            "source-layer": "building",
+            minzoom: 15,
+            paint: {
+              "fill-extrusion-color": "#c7cec9",
+              "fill-extrusion-height": ["coalesce", ["get", "render_height"], 6],
+              "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+              "fill-extrusion-opacity": 0.9,
+            },
+          });
+          preloadMap.once("idle", () => setView3DReady(true));
+        });
+      }
     });
     map.on("click", (event) => setCenter({ lat: event.lngLat.lat, lng: event.lngLat.lng }));
 
     return () => {
       resizeObserver.disconnect();
       mapInstanceRef.current = null;
+      preloadInstanceRef.current?.remove();
+      preloadInstanceRef.current = null;
       map.remove();
     };
   }, []);
@@ -233,13 +272,23 @@ export default function RegionalSimulator() {
     if (!map || !mapReady) return;
     (map.getSource("seismic-zones") as GeoJSONSource | undefined)?.setData(zoneData(center, radius));
     if (view3D) {
+      map.setLayoutProperty("seismic-3d-buildings", "visibility", "visible");
       map.easeTo({ center: [center.lng, center.lat], zoom: 15.5, pitch: 55, bearing: -18, duration: 750 });
     } else {
+      map.setLayoutProperty("seismic-3d-buildings", "visibility", "none");
       const latDelta = radius / 110.574;
       const lngDelta = radius / (111.32 * Math.cos(center.lat * Math.PI / 180));
       map.fitBounds([[center.lng - lngDelta, center.lat - latDelta], [center.lng + lngDelta, center.lat + latDelta]], { padding: 58, pitch: 0, bearing: 0, duration: 750 });
     }
   }, [center, radius, view3D, mapReady]);
+
+  useEffect(() => {
+    const preloadMap = preloadInstanceRef.current;
+    if (!preloadMap || view3D) return;
+    window.setTimeout(() => setView3DReady(false), 0);
+    preloadMap.jumpTo({ center: [center.lng, center.lat], zoom: 15.5, pitch: 55, bearing: -18 });
+    preloadMap.once("idle", () => setView3DReady(true));
+  }, [center, view3D]);
 
   const selectCity = (index: number) => {
     const city = CITIES[index];
@@ -269,12 +318,19 @@ export default function RegionalSimulator() {
       <div className="regional-map-panel">
         <header>
           <div><span className="eyebrow">OPENSTREETMAP IMPACT MAP</span><strong>{CITIES[cityIndex].name}</strong></div>
-          <div className="map-toolbar"><span className="map-provider">OpenFreeMap · keyless</span><button type="button" onClick={() => setView3D((current) => !current)}>{view3D ? "Area overview" : "3D district"}</button></div>
+          <div className="map-toolbar">
+            <span className={`map-warm-status${view3DReady ? " ready" : ""}`}><i />{view3DReady ? "3D ready" : "Preparing 3D"}</span>
+            <div className="map-view-switcher" role="group" aria-label="Map view">
+              <button type="button" className={!view3D ? "active" : ""} aria-label="2D area overview" aria-pressed={!view3D} onClick={() => setView3D(false)}>2D</button>
+              <button type="button" className={view3D ? "active" : ""} aria-label="3D district" aria-pressed={view3D} onClick={() => setView3D(true)}>3D</button>
+            </div>
+          </div>
         </header>
         <div className="regional-map" ref={mapRef} aria-label="Interactive OpenStreetMap regional earthquake impact map with 3D buildings" />
+        <div className="regional-map-preloader" ref={preloadMapRef} aria-hidden="true" />
         {!mapReady && !mapError && <div className="map-loading" role="status"><i /><span>Loading OpenStreetMap 3D data…</span></div>}
         {mapError && <p className="map-error">{mapError}</p>}
-        <div className="map-legend"><span><i className="zone-high" /> Highest modeled motion</span><span><i className="zone-mid" /> Moderate modeled motion</span><span><i className="zone-low" /> Lower modeled motion</span><b>{view3D ? "3D OSM buildings shown at district scale" : "Area-scale impact view"}</b></div>
+        <div className="map-legend"><span><i className="zone-high" /> Highest modeled motion</span><span><i className="zone-mid" /> Moderate modeled motion</span><span><i className="zone-low" /> Lower modeled motion</span><b>{view3D ? "3D OSM buildings shown at district scale" : "2D area overview · 3D prepared in background"}</b></div>
       </div>
 
       <aside className="regional-results">
