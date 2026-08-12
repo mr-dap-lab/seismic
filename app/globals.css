@@ -132,6 +132,11 @@ button { cursor: pointer; }
 .control-heading > span { font-weight: 700; }
 .control-heading i { color: #8b9692; font-family: Georgia, serif; font-weight: 400; }
 .control-heading strong { font-size: 11px; color: #1f2d28; }
+.parameter-label { position: relative; display: inline-flex; flex: 1; align-items: center; gap: 6px; min-width: 0; }
+.parameter-tooltip { position: static; display: inline-grid; flex: 0 0 auto; place-items: center; width: 16px; height: 16px; border: 1px solid #aeb9b4; border-radius: 50%; color: #68756f; background: #fff; font: 800 9px/1 Arial, sans-serif; cursor: help; outline: none; }
+.parameter-tooltip:hover, .parameter-tooltip:focus-visible { border-color: var(--signal); color: var(--signal-dark); box-shadow: 0 0 0 2px rgba(230,102,63,.14); }
+.parameter-tooltip-bubble { position: absolute; z-index: 80; top: calc(100% + 7px); left: 0; width: min(230px, calc(100vw - 48px)); padding: 9px 10px; border: 1px solid #46534e; border-radius: 3px; color: #f1f5f3; background: #16211e; box-shadow: 0 9px 25px rgba(14,24,20,.3); font-size: 9px; font-weight: 600; line-height: 1.45; letter-spacing: 0; text-align: left; text-transform: none; pointer-events: none; opacity: 0; transform: translateY(-3px); transition: opacity .15s ease, transform .15s ease; }
+.parameter-tooltip:hover .parameter-tooltip-bubble, .parameter-tooltip:focus-visible .parameter-tooltip-bubble { opacity: 1; transform: translateY(0); }
 .range-control { --range-progress: 50%; display: block; width: 100%; height: 16px; margin: 8px 0 0; padding: 0; appearance: none; background: transparent; }
 .range-control::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: linear-gradient(to right, var(--signal) 0 var(--range-progress), #cfd6d2 var(--range-progress) 100%); }
 .range-control::-webkit-slider-thumb { appearance: none; width: 13px; height: 13px; margin-top: -5px; border-radius: 50%; border: 2px solid #fff; background: var(--signal); box-shadow: 0 0 0 1px var(--signal-dark), 0 2px 4px rgba(0,0,0,.16); }
@@ -260,9 +265,12 @@ button { cursor: pointer; }
 .map-provider { padding: 6px 8px; border: 1px solid #45524e; border-radius: 2px; color: #9caaa4; font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .map-toolbar button { min-height: 27px; padding: 0 10px; border: 1px solid #735044; border-radius: 2px; color: #ffd9ca; background: #54372e; font-size: 8px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .map-toolbar button:hover, .map-toolbar button:focus-visible { border-color: var(--signal); background: #694438; outline: 2px solid rgba(230,102,63,.2); outline-offset: 2px; }
-.regional-map { z-index: 1; width: 100%; height: 100%; min-height: 500px; background: #dce2df; }
+.regional-map { position: relative; z-index: 1; width: 100%; height: 100%; min-height: 500px; overflow: hidden; background: #dce2df; }
 .regional-map .maplibregl-ctrl-attrib { font-size: 8px; }
 .regional-map .maplibregl-ctrl-group { border-radius: 2px; box-shadow: 0 2px 10px rgba(16,28,24,.2); }
+.map-loading { position: absolute; z-index: 3; top: 50%; left: 50%; display: flex; align-items: center; gap: 9px; padding: 10px 13px; transform: translate(-50%, -50%); color: #51605a; background: rgba(255,255,255,.92); box-shadow: 0 5px 18px rgba(24,39,33,.14); font-size: 9px; font-weight: 750; pointer-events: none; }
+.map-loading i { width: 13px; height: 13px; border: 2px solid #cbd4d0; border-top-color: var(--signal); border-radius: 50%; animation: map-spin .8s linear infinite; }
+@keyframes map-spin { to { transform: rotate(360deg); } }
 .map-error { position: absolute; z-index: 4; top: 67px; left: 50%; width: min(420px, calc(100% - 30px)); margin: 0; padding: 9px 12px; transform: translateX(-50%); border: 1px solid #e3aa8f; color: #754d3e; background: #fff4ee; box-shadow: 0 6px 20px rgba(40,50,45,.15); font-size: 8px; text-align: center; }
 .map-legend { z-index: 2; display: flex; align-items: center; justify-content: center; gap: 18px; padding: 0 12px; color: #68756f; background: #eef1ef; font-size: 8px; }
 .map-legend span { display: flex; align-items: center; gap: 5px; }
@@ -362,6 +370,7 @@ button { cursor: pointer; }
   .regional-map { min-height: 58vh; }
   .regional-controls { order: 2; border-right: 0; border-top: 1px solid var(--line); }
   .regional-results { order: 3; display: block; }
+  .coordinate-grid .regional-field:last-child .parameter-tooltip-bubble { right: 0; left: auto; }
   .map-legend { min-height: 48px; flex-wrap: wrap; gap: 8px 14px; padding: 8px 12px; }
   .map-provider { display: none; }
 }

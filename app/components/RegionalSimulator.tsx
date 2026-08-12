@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Map, NavigationControl, ScaleControl, type GeoJSONSource } from "maplibre-gl";
 import type { Feature, FeatureCollection, Point, Polygon } from "geojson";
+import { ParameterLabel } from "./ParameterTooltip";
 
 type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
 type City = { name: string; lat: number; lng: number; site: SiteClass };
 type Coordinate = { lat: number; lng: number };
 
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
-const VECTOR_TILES = "https://tiles.openfreemap.org/planet";
 const CITIES: City[] = [
   { name: "San Francisco, USA", lat: 37.7749, lng: -122.4194, site: "D" },
   { name: "Los Angeles, USA", lat: 34.0522, lng: -118.2437, site: "D" },
@@ -87,68 +87,94 @@ export default function RegionalSimulator() {
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
-    const map = new Map({
-      container: mapRef.current,
-      style: MAP_STYLE,
-      center: [CITIES[0].lng, CITIES[0].lat],
-      zoom: 15.5,
-      pitch: 55,
-      bearing: -18,
-      canvasContextAttributes: { antialias: true },
-    });
+    const container = mapRef.current;
+    let map: Map;
+    try {
+      map = new Map({
+        container,
+        style: MAP_STYLE,
+        center: [CITIES[0].lng, CITIES[0].lat],
+        zoom: 15.5,
+        pitch: 55,
+        bearing: -18,
+        canvasContextAttributes: { antialias: true },
+      });
+    } catch {
+      window.setTimeout(() => setMapError("The interactive map could not start. WebGL may be unavailable in this browser."), 0);
+      return;
+    }
     mapInstanceRef.current = map;
     map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
     map.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
 
+    const resizeObserver = new ResizeObserver(() => map.resize());
+    resizeObserver.observe(container);
+    const loadTimeout = window.setTimeout(() => {
+      if (!map.loaded()) setMapError("The map is taking longer than expected to load. Check the network connection and reload the page.");
+    }, 15000);
+
     map.on("load", () => {
-      const layers = map.getStyle().layers ?? [];
-      const labelLayer = layers.find((layer) => layer.type === "symbol" && layer.layout?.["text-field"]);
-      map.addSource("seismic-zones", { type: "geojson", data: zoneData(CITIES[0], 45) });
-      map.addLayer({
-        id: "seismic-zone-fill",
-        type: "fill",
-        source: "seismic-zones",
-        filter: ["==", ["geometry-type"], "Polygon"],
-        paint: {
-          "fill-color": ["match", ["get", "zone"], "high", "#e35f4a", "mid", "#ee925b", "#f1c75b"],
-          "fill-opacity": 0.18,
-        },
-      }, labelLayer?.id);
-      map.addLayer({
-        id: "seismic-zone-line",
-        type: "line",
-        source: "seismic-zones",
-        filter: ["==", ["geometry-type"], "Polygon"],
-        paint: { "line-color": ["match", ["get", "zone"], "high", "#cb4737", "mid", "#dc7543", "#d7aa3c"], "line-width": 2 },
-      }, labelLayer?.id);
-      map.addSource("openfreemap-buildings", { type: "vector", url: VECTOR_TILES });
-      map.addLayer({
-        id: "seismic-3d-buildings",
-        type: "fill-extrusion",
-        source: "openfreemap-buildings",
-        "source-layer": "building",
-        minzoom: 15,
-        filter: ["!=", ["get", "hide_3d"], true],
-        paint: {
-          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "render_height"], 0, "#c7cec9", 80, "#d4aa83", 220, "#e6663f"],
-          "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 15, 0, 15.6, ["get", "render_height"]],
-          "fill-extrusion-base": ["case", [">=", ["zoom"], 15.6], ["get", "render_min_height"], 0],
-          "fill-extrusion-opacity": 0.9,
-        },
-      }, labelLayer?.id);
-      map.addLayer({
-        id: "seismic-epicenter",
-        type: "circle",
-        source: "seismic-zones",
-        filter: ["==", ["geometry-type"], "Point"],
-        paint: { "circle-radius": 7, "circle-color": "#e6663f", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
-      });
+      window.clearTimeout(loadTimeout);
+      setMapError("");
+      try {
+        const layers = map.getStyle().layers ?? [];
+        const labelLayer = layers.find((layer) => layer.type === "symbol" && layer.layout?.["text-field"]);
+        const buildingLayer = layers
+          .map((layer) => layer as typeof layer & { source?: string; "source-layer"?: string })
+          .find((layer) => layer["source-layer"] === "building" && typeof layer.source === "string");
+
+        map.addSource("seismic-zones", { type: "geojson", data: zoneData(CITIES[0], 45) });
+        map.addLayer({
+          id: "seismic-zone-fill",
+          type: "fill",
+          source: "seismic-zones",
+          filter: ["==", ["geometry-type"], "Polygon"],
+          paint: {
+            "fill-color": ["match", ["get", "zone"], "high", "#e35f4a", "mid", "#ee925b", "#f1c75b"],
+            "fill-opacity": 0.18,
+          },
+        }, labelLayer?.id);
+        map.addLayer({
+          id: "seismic-zone-line",
+          type: "line",
+          source: "seismic-zones",
+          filter: ["==", ["geometry-type"], "Polygon"],
+          paint: { "line-color": ["match", ["get", "zone"], "high", "#cb4737", "mid", "#dc7543", "#d7aa3c"], "line-width": 2 },
+        }, labelLayer?.id);
+        if (buildingLayer?.source) {
+          map.addLayer({
+            id: "seismic-3d-buildings",
+            type: "fill-extrusion",
+            source: buildingLayer.source,
+            "source-layer": "building",
+            minzoom: 15,
+            filter: ["!=", ["get", "hide_3d"], true],
+            paint: {
+              "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 6], 0, "#c7cec9", 80, "#d4aa83", 220, "#e6663f"],
+              "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 15, 0, 15.6, ["coalesce", ["get", "render_height"], 6]],
+              "fill-extrusion-base": ["case", [">=", ["zoom"], 15.6], ["coalesce", ["get", "render_min_height"], 0], 0],
+              "fill-extrusion-opacity": 0.9,
+            },
+          }, labelLayer?.id);
+        }
+        map.addLayer({
+          id: "seismic-epicenter",
+          type: "circle",
+          source: "seismic-zones",
+          filter: ["==", ["geometry-type"], "Point"],
+          paint: { "circle-radius": 7, "circle-color": "#e6663f", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
+        });
+      } catch {
+        setMapError("The base map loaded, but one or more seismic overlays could not be displayed.");
+      }
+      map.resize();
       setMapReady(true);
     });
     map.on("click", (event) => setCenter({ lat: event.lngLat.lat, lng: event.lngLat.lng }));
-    map.on("error", () => setMapError("Some open map tiles could not be loaded. Check your connection and try again."));
 
     return () => {
+      window.clearTimeout(loadTimeout);
+      resizeObserver.disconnect();
       mapInstanceRef.current = null;
       map.remove();
     };
@@ -180,15 +206,15 @@ export default function RegionalSimulator() {
         <span className="eyebrow">GEOGRAPHIC SCENARIO</span>
         <h1>Regional shaking model</h1>
         <p>Place an epicenter, define the affected radius, and explore distance-based ground motion across a city or geographic area.</p>
-        <label className="regional-field"><span>City preset</span><select value={cityIndex} onChange={(event) => selectCity(Number(event.target.value))}>{CITIES.map((city, index) => <option value={index} key={city.name}>{city.name}</option>)}</select></label>
+        <label className="regional-field"><ParameterLabel label="City preset" description="Moves the epicenter to a predefined city and assigns a representative site class for initial screening." /><select value={cityIndex} onChange={(event) => selectCity(Number(event.target.value))}>{CITIES.map((city, index) => <option value={index} key={city.name}>{city.name}</option>)}</select></label>
         <div className="coordinate-grid">
-          <label className="regional-field"><span>Latitude</span><input type="number" step="0.0001" value={center.lat.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lat: Number(event.target.value) }))} /></label>
-          <label className="regional-field"><span>Longitude</span><input type="number" step="0.0001" value={center.lng.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lng: Number(event.target.value) }))} /></label>
+          <label className="regional-field"><ParameterLabel label="Latitude" description="The north–south coordinate of the modeled earthquake epicenter in decimal degrees." /><input type="number" step="0.0001" value={center.lat.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lat: Number(event.target.value) }))} /></label>
+          <label className="regional-field"><ParameterLabel label="Longitude" description="The east–west coordinate of the modeled earthquake epicenter in decimal degrees." /><input type="number" step="0.0001" value={center.lng.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lng: Number(event.target.value) }))} /></label>
         </div>
-        <label className="regional-range"><span><b>Magnitude</b><strong>{magnitude.toFixed(1)}</strong></span><input type="range" min="4" max="9.5" step="0.1" value={magnitude} onChange={(event) => setMagnitude(Number(event.target.value))} /></label>
-        <label className="regional-range"><span><b>Focal depth</b><strong>{depth} km</strong></span><input type="range" min="2" max="80" step="1" value={depth} onChange={(event) => setDepth(Number(event.target.value))} /></label>
-        <label className="regional-range"><span><b>Analysis radius</b><strong>{radius} km</strong></span><input type="range" min="5" max="150" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /></label>
-        <label className="regional-field"><span>Representative site class</span><select value={siteClass} onChange={(event) => setSiteClass(event.target.value as SiteClass)}>{Object.keys(SITE_FACTORS).map((site) => <option value={site} key={site}>Class {site}</option>)}</select></label>
+        <label className="regional-range"><span><ParameterLabel label="Magnitude" description="The earthquake's logarithmic energy measure used by the regional attenuation model." /><strong>{magnitude.toFixed(1)}</strong></span><input type="range" min="4" max="9.5" step="0.1" value={magnitude} onChange={(event) => setMagnitude(Number(event.target.value))} /></label>
+        <label className="regional-range"><span><ParameterLabel label="Focal depth" description="The vertical distance from the ground surface to the earthquake focus. Deeper events generally produce weaker surface motion nearby." /><strong>{depth} km</strong></span><input type="range" min="2" max="80" step="1" value={depth} onChange={(event) => setDepth(Number(event.target.value))} /></label>
+        <label className="regional-range"><span><ParameterLabel label="Analysis radius" description="The radial distance from the epicenter over which ground motion and affected area are estimated." /><strong>{radius} km</strong></span><input type="range" min="5" max="150" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /></label>
+        <label className="regional-field"><ParameterLabel label="Representative site class" description="The assumed regional soil or rock class used to amplify or reduce the calculated ground motion across the selected area." /><select value={siteClass} onChange={(event) => setSiteClass(event.target.value as SiteClass)}>{Object.keys(SITE_FACTORS).map((site) => <option value={site} key={site}>Class {site}</option>)}</select></label>
         <p className="regional-note">Click anywhere on the map to move the scenario epicenter. Site classes are preset estimates and must be confirmed by geotechnical investigation.</p>
       </aside>
 
@@ -198,6 +224,7 @@ export default function RegionalSimulator() {
           <div className="map-toolbar"><span className="map-provider">OpenFreeMap · keyless</span><button type="button" onClick={() => setView3D((current) => !current)}>{view3D ? "Area overview" : "3D district"}</button></div>
         </header>
         <div className="regional-map" ref={mapRef} aria-label="Interactive OpenStreetMap regional earthquake impact map with 3D buildings" />
+        {!mapReady && !mapError && <div className="map-loading" role="status"><i /><span>Loading OpenStreetMap 3D data…</span></div>}
         {mapError && <p className="map-error">{mapError}</p>}
         <div className="map-legend"><span><i className="zone-high" /> Highest modeled motion</span><span><i className="zone-mid" /> Moderate modeled motion</span><span><i className="zone-low" /> Lower modeled motion</span><b>{view3D ? "3D OSM buildings shown at district scale" : "Area-scale impact view"}</b></div>
       </div>

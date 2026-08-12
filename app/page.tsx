@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { ParameterLabel } from "./components/ParameterTooltip";
 import RegionalSimulator from "./components/RegionalSimulator";
 import { createSeismicPdf } from "./lib/pdf-report.mjs";
 
@@ -217,6 +218,7 @@ function RangeControl({
   max,
   step,
   unit,
+  description,
   onChange,
 }: {
   label: string;
@@ -226,13 +228,14 @@ function RangeControl({
   max: number;
   step: number;
   unit?: string;
+  description: string;
   onChange: (value: number) => void;
 }) {
   const progress = ((value - min) / (max - min)) * 100;
   return (
     <label className="control-block">
       <span className="control-heading">
-        <span>{label} {symbol && <i>{symbol}</i>}</span>
+        <ParameterLabel label={label} symbol={symbol} description={description} />
         <strong>{value}{unit}</strong>
       </span>
       <input
@@ -255,16 +258,18 @@ function SelectControl({
   label,
   value,
   options,
+  description,
   onChange,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
+  description: string;
   onChange: (value: string) => void;
 }) {
   return (
     <label className="select-control">
-      <span>{label}</span>
+      <ParameterLabel label={label} description={description} />
       <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={label}>
         {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
       </select>
@@ -929,12 +934,13 @@ export default function Home() {
 
           {activeTab === "motion" ? (
             <div className="controls-stack">
-              <RangeControl label="Magnitude" symbol="M" value={config.magnitude} min={3} max={9.5} step={0.1} onChange={(value) => update("magnitude", value)} />
-              <RangeControl label="Perceived intensity" symbol="I" value={config.intensity} min={1} max={12} step={1} onChange={(value) => update("intensity", value)} />
-              <RangeControl label="Peak amplitude" symbol="A" value={config.amplitude} min={0.02} max={1.5} step={0.01} unit=" g" onChange={(value) => update("amplitude", value)} />
-              <RangeControl label="Dominant frequency" symbol="f" value={config.frequency} min={0.2} max={5} step={0.1} unit=" Hz" onChange={(value) => update("frequency", value)} />
+              <RangeControl label="Magnitude" symbol="M" description="A logarithmic measure of the earthquake's released energy. Each whole-number increase represents substantially stronger shaking." value={config.magnitude} min={3} max={9.5} step={0.1} onChange={(value) => update("magnitude", value)} />
+              <RangeControl label="Perceived intensity" symbol="I" description="The expected severity of shaking and observed effects at the structure, expressed on the 1–12 Modified Mercalli scale." value={config.intensity} min={1} max={12} step={1} onChange={(value) => update("intensity", value)} />
+              <RangeControl label="Peak amplitude" symbol="A" description="The maximum modeled ground acceleration, expressed as a fraction of gravity (g). It directly influences inertial force." value={config.amplitude} min={0.02} max={1.5} step={0.01} unit=" g" onChange={(value) => update("amplitude", value)} />
+              <RangeControl label="Dominant frequency" symbol="f" description="The principal repetition rate of ground motion. Response can increase when it approaches the structure's natural frequency." value={config.frequency} min={0.2} max={5} step={0.1} unit=" Hz" onChange={(value) => update("frequency", value)} />
               <SelectControl
                 label="Site class"
+                description="A–F soil and rock classification used to estimate how local ground conditions amplify shaking. Class A is hard rock; softer classes generally amplify more."
                 value={config.siteClass}
                 options={(Object.keys(SITE_FACTORS) as SiteClass[]).map((site) => ({ value: site, label: `${site} — ${site === "A" ? "Hard rock" : site === "B" ? "Rock" : site === "C" ? "Dense soil" : site === "D" ? "Stiff soil" : site === "E" ? "Soft clay" : "Site-specific"}` }))}
                 onChange={(value) => update("siteClass", value as SiteClass)}
@@ -945,26 +951,28 @@ export default function Home() {
             <div className="controls-stack">
               <SelectControl
                 label="Structure type"
+                description="The asset geometry being modeled. This selection changes allowed floor counts, dimensions, mass, stiffness assumptions, and the 3D representation."
                 value={config.structureKind}
                 options={(Object.keys(STRUCTURE_KINDS) as StructureKind[]).map((kind) => ({ value: kind, label: STRUCTURE_KINDS[kind].label }))}
                 onChange={(value) => changeStructureKind(value as StructureKind)}
               />
               <SelectControl
                 label="Structural system"
+                description="The primary lateral-force-resisting material and framing system used to estimate stiffness, period, and energy-dissipation behavior."
                 value={config.structure}
                 options={(Object.keys(STRUCTURES) as StructureType[]).map((type) => ({ value: type, label: STRUCTURES[type].label }))}
                 onChange={(value) => update("structure", value as StructureType)}
               />
-              <RangeControl label="Number of floors" value={config.floors} min={kindProfile.minFloors} max={kindProfile.maxFloors} step={1} onChange={changeFloors} />
-              <RangeControl label="Floor height" value={config.floorHeight} min={2.6} max={4.5} step={0.1} unit=" m" onChange={(value) => update("floorHeight", value)} />
+              <RangeControl label="Number of floors" description="The number of occupied or modeled levels. It controls total height, approximate mass distribution, period, and the rendered model." value={config.floors} min={kindProfile.minFloors} max={kindProfile.maxFloors} step={1} onChange={changeFloors} />
+              <RangeControl label="Floor height" description="The vertical distance between consecutive floor levels. Together with floor count, it determines total structural height." value={config.floorHeight} min={2.6} max={4.5} step={0.1} unit=" m" onChange={(value) => update("floorHeight", value)} />
               {config.structureKind === "carPark" && (
-                <RangeControl label="Vehicle occupancy" value={config.vehicleOccupancy} min={0} max={100} step={5} unit="%" onChange={(value) => update("vehicleOccupancy", value)} />
+                <RangeControl label="Vehicle occupancy" description="The estimated percentage of parking spaces occupied. More vehicles increase the modeled seismic mass and structural demand." value={config.vehicleOccupancy} min={0} max={100} step={5} unit="%" onChange={(value) => update("vehicleOccupancy", value)} />
               )}
-              <RangeControl label="Damping ratio" symbol="ζ" value={config.damping} min={2} max={15} step={0.5} unit="%" onChange={(value) => update("damping", value)} />
-              <RangeControl label="Drift limit" symbol="Δ" value={config.driftLimit} min={0.5} max={3} step={0.1} unit="%" onChange={(value) => update("driftLimit", value)} />
-              <RangeControl label="Response modification" symbol="R" value={config.responseFactor} min={1} max={8} step={0.5} onChange={(value) => update("responseFactor", value)} />
-              <RangeControl label="Importance factor" value={config.importanceFactor} min={1} max={1.5} step={0.05} onChange={(value) => update("importanceFactor", value)} />
-              <RangeControl label="Material reliability" value={config.reliability} min={0.65} max={1.35} step={0.05} onChange={(value) => update("reliability", value)} />
+              <RangeControl label="Damping ratio" symbol="ζ" description="The percentage of critical damping used to represent how quickly the structure dissipates vibration energy." value={config.damping} min={2} max={15} step={0.5} unit="%" onChange={(value) => update("damping", value)} />
+              <RangeControl label="Drift limit" symbol="Δ" description="The maximum acceptable relative horizontal displacement between adjacent floors, expressed as a percentage of story height." value={config.driftLimit} min={0.5} max={3} step={0.1} unit="%" onChange={(value) => update("driftLimit", value)} />
+              <RangeControl label="Response modification" symbol="R" description="A design coefficient representing ductility, overstrength, and energy dissipation. Higher values reduce the equivalent elastic design force." value={config.responseFactor} min={1} max={8} step={0.5} onChange={(value) => update("responseFactor", value)} />
+              <RangeControl label="Importance factor" description="A multiplier that increases design demand for structures whose continued operation or occupancy is especially important." value={config.importanceFactor} min={1} max={1.5} step={0.05} onChange={(value) => update("importanceFactor", value)} />
+              <RangeControl label="Material reliability" description="A simplified confidence factor for material condition and construction quality. Lower reliability increases estimated response and damage." value={config.reliability} min={0.65} max={1.35} step={0.05} onChange={(value) => update("reliability", value)} />
             </div>
           )}
         </aside>
