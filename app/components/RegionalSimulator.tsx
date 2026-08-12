@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Map, NavigationControl, ScaleControl, type GeoJSONSource } from "maplibre-gl";
+import type { Feature, FeatureCollection, Point, Polygon } from "geojson";
 
 type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
 type City = { name: string; lat: number; lng: number; site: SiteClass };
+type Coordinate = { lat: number; lng: number };
 
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
+const VECTOR_TILES = "https://tiles.openfreemap.org/planet";
 const CITIES: City[] = [
   { name: "San Francisco, USA", lat: 37.7749, lng: -122.4194, site: "D" },
   { name: "Los Angeles, USA", lat: 34.0522, lng: -118.2437, site: "D" },
@@ -18,7 +23,6 @@ const CITIES: City[] = [
 
 const SITE_FACTORS: Record<SiteClass, number> = { A: 0.72, B: 0.85, C: 1, D: 1.22, E: 1.48, F: 1.75 };
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-let googleMapsConfigured = false;
 
 function groundMotion(magnitude: number, depth: number, distance: number, site: SiteClass) {
   const hypocentralDistance = Math.sqrt(distance ** 2 + depth ** 2);
@@ -26,7 +30,7 @@ function groundMotion(magnitude: number, depth: number, distance: number, site: 
   const attenuation = Math.exp(-hypocentralDistance / 105) / Math.pow(Math.max(hypocentralDistance, 5) / 10, 0.92);
   const pga = clamp(0.19 * magnitudeTerm * attenuation * SITE_FACTORS[site], 0.002, 2.5);
   const pgaCms = pga * 980.665;
-  const mmi = clamp((pgaCms > 80 ? 3.66 * Math.log10(pgaCms) - 1.66 : 2.2 * Math.log10(pgaCms) + 1), 1, 12);
+  const mmi = clamp(pgaCms > 80 ? 3.66 * Math.log10(pgaCms) - 1.66 : 2.2 * Math.log10(pgaCms) + 1, 1, 12);
   return { pga, mmi };
 }
 
@@ -37,15 +41,41 @@ function riskLabel(mmi: number) {
   return "Light";
 }
 
+function circleFeature(center: Coordinate, radiusKm: number, zone: string): Feature<Polygon> {
+  const coordinates: [number, number][] = [];
+  const latitudeRadians = center.lat * Math.PI / 180;
+  for (let index = 0; index <= 96; index += 1) {
+    const angle = (index / 96) * Math.PI * 2;
+    const lat = center.lat + (radiusKm / 110.574) * Math.sin(angle);
+    const lng = center.lng + (radiusKm / (111.32 * Math.cos(latitudeRadians))) * Math.cos(angle);
+    coordinates.push([lng, lat]);
+  }
+  return { type: "Feature", properties: { zone }, geometry: { type: "Polygon", coordinates: [coordinates] } };
+}
+
+function zoneData(center: Coordinate, radius: number): FeatureCollection<Polygon | Point> {
+  return {
+    type: "FeatureCollection",
+    features: [
+      circleFeature(center, radius, "low"),
+      circleFeature(center, radius * 0.66, "mid"),
+      circleFeature(center, radius * 0.33, "high"),
+      { type: "Feature", properties: { zone: "epicenter" }, geometry: { type: "Point", coordinates: [center.lng, center.lat] } },
+    ],
+  };
+}
+
 export default function RegionalSimulator() {
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
   const [cityIndex, setCityIndex] = useState(0);
-  const [center, setCenter] = useState({ lat: CITIES[0].lat, lng: CITIES[0].lng });
+  const [center, setCenter] = useState<Coordinate>({ lat: CITIES[0].lat, lng: CITIES[0].lng });
   const [magnitude, setMagnitude] = useState(7.2);
   const [depth, setDepth] = useState(12);
   const [radius, setRadius] = useState(45);
   const [siteClass, setSiteClass] = useState<SiteClass>(CITIES[0].site);
-  const [mapProvider, setMapProvider] = useState("Loading map...");
+  const [view3D, setView3D] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
 
   const centerMotion = useMemo(() => groundMotion(magnitude, depth, 0, siteClass), [magnitude, depth, siteClass]);
@@ -56,64 +86,86 @@ export default function RegionalSimulator() {
   }), [magnitude, depth, radius, siteClass]);
 
   useEffect(() => {
-    if (!mapRef.current) return;
-    let disposed = false;
-    let cleanup = () => {};
-    const googleKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!mapRef.current || mapInstanceRef.current) return;
+    const map = new Map({
+      container: mapRef.current,
+      style: MAP_STYLE,
+      center: [CITIES[0].lng, CITIES[0].lat],
+      zoom: 15.5,
+      pitch: 55,
+      bearing: -18,
+      canvasContextAttributes: { antialias: true },
+    });
+    mapInstanceRef.current = map;
+    map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
 
-    const loadMap = async () => {
-      setMapError("");
-      if (googleKey) {
-        try {
-          const { setOptions, importLibrary } = await import("@googlemaps/js-api-loader");
-          if (!googleMapsConfigured) {
-            setOptions({ key: googleKey, v: "weekly", authReferrerPolicy: "origin" });
-            googleMapsConfigured = true;
-          }
-          const { Map } = await importLibrary("maps");
-          if (disposed || !mapRef.current) return;
-          const map = new Map(mapRef.current, { center, zoom: Math.max(8, 12 - Math.round(radius / 25)), mapTypeControl: true, streetViewControl: false });
-          const circles = [1, 0.66, 0.33].map((factor, index) => new google.maps.Circle({
-            map,
-            center,
-            radius: radius * factor * 1000,
-            fillColor: ["#f1c75b", "#ee925b", "#e35f4a"][index],
-            fillOpacity: 0.13,
-            strokeColor: ["#d7aa3c", "#dc7543", "#cb4737"][index],
-            strokeOpacity: 0.9,
-            strokeWeight: 2,
-          }));
-          const listener = map.addListener("click", (event: google.maps.MapMouseEvent) => {
-            if (event.latLng) setCenter({ lat: event.latLng.lat(), lng: event.latLng.lng() });
-          });
-          setMapProvider("Google Maps");
-          cleanup = () => { listener.remove(); circles.forEach((circle) => circle.setMap(null)); };
-          return;
-        } catch {
-          if (!disposed) setMapError("Google Maps could not load. OpenStreetMap fallback is active.");
-        }
-      }
+    map.on("load", () => {
+      const layers = map.getStyle().layers ?? [];
+      const labelLayer = layers.find((layer) => layer.type === "symbol" && layer.layout?.["text-field"]);
+      map.addSource("seismic-zones", { type: "geojson", data: zoneData(CITIES[0], 45) });
+      map.addLayer({
+        id: "seismic-zone-fill",
+        type: "fill",
+        source: "seismic-zones",
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: {
+          "fill-color": ["match", ["get", "zone"], "high", "#e35f4a", "mid", "#ee925b", "#f1c75b"],
+          "fill-opacity": 0.18,
+        },
+      }, labelLayer?.id);
+      map.addLayer({
+        id: "seismic-zone-line",
+        type: "line",
+        source: "seismic-zones",
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: { "line-color": ["match", ["get", "zone"], "high", "#cb4737", "mid", "#dc7543", "#d7aa3c"], "line-width": 2 },
+      }, labelLayer?.id);
+      map.addSource("openfreemap-buildings", { type: "vector", url: VECTOR_TILES });
+      map.addLayer({
+        id: "seismic-3d-buildings",
+        type: "fill-extrusion",
+        source: "openfreemap-buildings",
+        "source-layer": "building",
+        minzoom: 15,
+        filter: ["!=", ["get", "hide_3d"], true],
+        paint: {
+          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "render_height"], 0, "#c7cec9", 80, "#d4aa83", 220, "#e6663f"],
+          "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 15, 0, 15.6, ["get", "render_height"]],
+          "fill-extrusion-base": ["case", [">=", ["zoom"], 15.6], ["get", "render_min_height"], 0],
+          "fill-extrusion-opacity": 0.9,
+        },
+      }, labelLayer?.id);
+      map.addLayer({
+        id: "seismic-epicenter",
+        type: "circle",
+        source: "seismic-zones",
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: { "circle-radius": 7, "circle-color": "#e6663f", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
+      });
+      setMapReady(true);
+    });
+    map.on("click", (event) => setCenter({ lat: event.lngLat.lat, lng: event.lngLat.lng }));
+    map.on("error", () => setMapError("Some open map tiles could not be loaded. Check your connection and try again."));
 
-      const L = await import("leaflet");
-      if (disposed || !mapRef.current) return;
-      const map = L.map(mapRef.current, { zoomControl: true, preferCanvas: true }).setView([center.lat, center.lng], Math.max(8, 12 - Math.round(radius / 25)));
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
-      [1, 0.66, 0.33].forEach((factor, index) => L.circle([center.lat, center.lng], {
-        radius: radius * factor * 1000,
-        color: ["#d7aa3c", "#dc7543", "#cb4737"][index],
-        fillColor: ["#f1c75b", "#ee925b", "#e35f4a"][index],
-        fillOpacity: 0.13,
-        weight: 2,
-      }).addTo(map));
-      L.circleMarker([center.lat, center.lng], { radius: 7, color: "#fff", weight: 2, fillColor: "#e6663f", fillOpacity: 1 }).addTo(map).bindTooltip("Scenario epicenter");
-      map.on("click", (event) => setCenter({ lat: event.latlng.lat, lng: event.latlng.lng }));
-      setMapProvider("OpenStreetMap");
-      cleanup = () => map.remove();
+    return () => {
+      mapInstanceRef.current = null;
+      map.remove();
     };
+  }, []);
 
-    void loadMap();
-    return () => { disposed = true; cleanup(); };
-  }, [center, radius]);
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !mapReady) return;
+    (map.getSource("seismic-zones") as GeoJSONSource | undefined)?.setData(zoneData(center, radius));
+    if (view3D) {
+      map.easeTo({ center: [center.lng, center.lat], zoom: 15.5, pitch: 55, bearing: -18, duration: 750 });
+    } else {
+      const latDelta = radius / 110.574;
+      const lngDelta = radius / (111.32 * Math.cos(center.lat * Math.PI / 180));
+      map.fitBounds([[center.lng - lngDelta, center.lat - latDelta], [center.lng + lngDelta, center.lat + latDelta]], { padding: 58, pitch: 0, bearing: 0, duration: 750 });
+    }
+  }, [center, radius, view3D, mapReady]);
 
   const selectCity = (index: number) => {
     const city = CITIES[index];
@@ -141,10 +193,13 @@ export default function RegionalSimulator() {
       </aside>
 
       <div className="regional-map-panel">
-        <header><div><span className="eyebrow">IMPACT MAP</span><strong>{CITIES[cityIndex].name}</strong></div><span className="map-provider">{mapProvider}</span></header>
-        <div className="regional-map" ref={mapRef} aria-label="Interactive regional earthquake impact map" />
+        <header>
+          <div><span className="eyebrow">OPENSTREETMAP IMPACT MAP</span><strong>{CITIES[cityIndex].name}</strong></div>
+          <div className="map-toolbar"><span className="map-provider">OpenFreeMap · keyless</span><button type="button" onClick={() => setView3D((current) => !current)}>{view3D ? "Area overview" : "3D district"}</button></div>
+        </header>
+        <div className="regional-map" ref={mapRef} aria-label="Interactive OpenStreetMap regional earthquake impact map with 3D buildings" />
         {mapError && <p className="map-error">{mapError}</p>}
-        <div className="map-legend"><span><i className="zone-high" /> Highest modeled motion</span><span><i className="zone-mid" /> Moderate modeled motion</span><span><i className="zone-low" /> Lower modeled motion</span></div>
+        <div className="map-legend"><span><i className="zone-high" /> Highest modeled motion</span><span><i className="zone-mid" /> Moderate modeled motion</span><span><i className="zone-low" /> Lower modeled motion</span><b>{view3D ? "3D OSM buildings shown at district scale" : "Area-scale impact view"}</b></div>
       </div>
 
       <aside className="regional-results">

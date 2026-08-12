@@ -15,27 +15,28 @@ test("builds the production-ready SEISMIC application", async () => {
   assert.match(page, /RegionalSimulator/);
 });
 
-test("wires PDF, regional mapping, and Vercel configuration", async () => {
-  const [page, regional, pdf, css, packageJson, vercel, envExample] = await Promise.all([
+test("wires PDF, keyless 3D regional mapping, and Vercel configuration", async () => {
+  const [page, regional, pdf, css, packageJson, vercel] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/RegionalSimulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/pdf-report.mjs", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../vercel.json", import.meta.url), "utf8"),
-    readFile(new URL("../.env.example", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /createSeismicPdf/);
   assert.match(page, /Regional map/);
   assert.match(pdf, /jspdf-autotable/);
   assert.match(pdf, /IMPORTANT PROFESSIONAL-USE DISCLAIMER/);
-  assert.match(regional, /@googlemaps\/js-api-loader/);
-  assert.match(regional, /OpenStreetMap fallback/);
+  assert.match(regional, /maplibre-gl/);
+  assert.match(regional, /tiles\.openfreemap\.org\/planet/);
+  assert.match(regional, /fill-extrusion/);
+  assert.match(regional, /3D district/);
   assert.match(regional, /Click anywhere on the map/);
   assert.match(css, /\.regional-shell\s*\{/);
   assert.match(packageJson, /"jspdf"/);
-  assert.match(packageJson, /"leaflet"/);
+  assert.match(packageJson, /"maplibre-gl"/);
+  assert.doesNotMatch(packageJson, /googlemaps|leaflet/);
   assert.match(vercel, /"framework": "nextjs"/);
-  assert.match(envExample, /NEXT_PUBLIC_GOOGLE_MAPS_API_KEY/);
 });

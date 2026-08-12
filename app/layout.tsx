@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
-import "leaflet/dist/leaflet.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 const description = "Explore how ground motion, site conditions, and structural design influence earthquake response in an interactive Three.js simulator.";
 
