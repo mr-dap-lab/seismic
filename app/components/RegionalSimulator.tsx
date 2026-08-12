@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Map, NavigationControl, ScaleControl, type GeoJSONSource } from "maplibre-gl";
+import { Map, NavigationControl, ScaleControl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
 import type { Feature, FeatureCollection, Point, Polygon } from "geojson";
 import { ParameterLabel } from "./ParameterTooltip";
 
@@ -9,7 +9,69 @@ type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
 type City = { name: string; lat: number; lng: number; site: SiteClass };
 type Coordinate = { lat: number; lng: number };
 
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
+// A small, versioned OpenFreeMap snapshot avoids downloading the provider's
+// complete style, sprite sheet, and hundreds of unused layer definitions.
+const OFM_VECTOR_TILES = "https://tiles.openfreemap.org/planet/20260802_080001_pt/{z}/{x}/{y}.pbf";
+const MAP_STYLE: StyleSpecification = {
+  version: 8,
+  glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  sources: {
+    openmaptiles: {
+      type: "vector",
+      tiles: [OFM_VECTOR_TILES],
+      minzoom: 0,
+      maxzoom: 14,
+      attribution: "© OpenStreetMap contributors · OpenFreeMap",
+    },
+  },
+  layers: [
+    { id: "background", type: "background", paint: { "background-color": "#e9eeeb" } },
+    {
+      id: "landuse",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landuse",
+      paint: {
+        "fill-color": ["match", ["get", "class"], "park", "#dce9d8", "wood", "#d7e4d5", "industrial", "#e8e3db", "#eeeae4"],
+        "fill-opacity": 0.72,
+      },
+    },
+    { id: "water", type: "fill", source: "openmaptiles", "source-layer": "water", paint: { "fill-color": "#b9d9df" } },
+    { id: "waterway", type: "line", source: "openmaptiles", "source-layer": "waterway", paint: { "line-color": "#a8d0d8", "line-width": 1.2 } },
+    {
+      id: "roads",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "transportation",
+      filter: ["match", ["get", "class"], ["motorway", "trunk", "primary", "secondary", "tertiary", "street", "minor", "service"], true, false],
+      paint: {
+        "line-color": ["match", ["get", "class"], ["motorway", "trunk"], "#cba68d", ["primary", "secondary"], "#d3c4b4", "#ffffff"],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.4, 13, 1.4, 16, 4],
+      },
+    },
+    {
+      id: "building-footprints",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "building",
+      minzoom: 13,
+      paint: { "fill-color": "#c8ceca", "fill-outline-color": "#b4bcb7", "fill-opacity": 0.62 },
+    },
+    {
+      id: "place-label",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "place",
+      minzoom: 5,
+      layout: {
+        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 5, 10, 13, 13],
+      },
+      paint: { "text-color": "#53615b", "text-halo-color": "#f3f5f2", "text-halo-width": 1.3 },
+    },
+  ],
+};
 const CITIES: City[] = [
   { name: "San Francisco, USA", lat: 37.7749, lng: -122.4194, site: "D" },
   { name: "Los Angeles, USA", lat: 34.0522, lng: -118.2437, site: "D" },
@@ -109,20 +171,9 @@ export default function RegionalSimulator() {
 
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(container);
-    const loadTimeout = window.setTimeout(() => {
-      if (!map.loaded()) setMapError("The map is taking longer than expected to load. Check the network connection and reload the page.");
-    }, 15000);
-
-    map.on("load", () => {
-      window.clearTimeout(loadTimeout);
+    map.on("style.load", () => {
       setMapError("");
       try {
-        const layers = map.getStyle().layers ?? [];
-        const labelLayer = layers.find((layer) => layer.type === "symbol" && layer.layout?.["text-field"]);
-        const buildingLayer = layers
-          .map((layer) => layer as typeof layer & { source?: string; "source-layer"?: string })
-          .find((layer) => layer["source-layer"] === "building" && typeof layer.source === "string");
-
         map.addSource("seismic-zones", { type: "geojson", data: zoneData(CITIES[0], 45) });
         map.addLayer({
           id: "seismic-zone-fill",
@@ -133,30 +184,28 @@ export default function RegionalSimulator() {
             "fill-color": ["match", ["get", "zone"], "high", "#e35f4a", "mid", "#ee925b", "#f1c75b"],
             "fill-opacity": 0.18,
           },
-        }, labelLayer?.id);
+        }, "place-label");
         map.addLayer({
           id: "seismic-zone-line",
           type: "line",
           source: "seismic-zones",
           filter: ["==", ["geometry-type"], "Polygon"],
           paint: { "line-color": ["match", ["get", "zone"], "high", "#cb4737", "mid", "#dc7543", "#d7aa3c"], "line-width": 2 },
-        }, labelLayer?.id);
-        if (buildingLayer?.source) {
-          map.addLayer({
-            id: "seismic-3d-buildings",
-            type: "fill-extrusion",
-            source: buildingLayer.source,
-            "source-layer": "building",
-            minzoom: 15,
-            filter: ["!=", ["get", "hide_3d"], true],
-            paint: {
-              "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 6], 0, "#c7cec9", 80, "#d4aa83", 220, "#e6663f"],
-              "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 15, 0, 15.6, ["coalesce", ["get", "render_height"], 6]],
-              "fill-extrusion-base": ["case", [">=", ["zoom"], 15.6], ["coalesce", ["get", "render_min_height"], 0], 0],
-              "fill-extrusion-opacity": 0.9,
-            },
-          }, labelLayer?.id);
-        }
+        }, "place-label");
+        map.addLayer({
+          id: "seismic-3d-buildings",
+          type: "fill-extrusion",
+          source: "openmaptiles",
+          "source-layer": "building",
+          minzoom: 15,
+          filter: ["!=", ["get", "hide_3d"], true],
+          paint: {
+            "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 6], 0, "#c7cec9", 80, "#d4aa83", 220, "#e6663f"],
+            "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 15, 0, 15.6, ["coalesce", ["get", "render_height"], 6]],
+            "fill-extrusion-base": ["case", [">=", ["zoom"], 15.6], ["coalesce", ["get", "render_min_height"], 0], 0],
+            "fill-extrusion-opacity": 0.9,
+          },
+        }, "place-label");
         map.addLayer({
           id: "seismic-epicenter",
           type: "circle",
@@ -173,7 +222,6 @@ export default function RegionalSimulator() {
     map.on("click", (event) => setCenter({ lat: event.lngLat.lat, lng: event.lngLat.lng }));
 
     return () => {
-      window.clearTimeout(loadTimeout);
       resizeObserver.disconnect();
       mapInstanceRef.current = null;
       map.remove();

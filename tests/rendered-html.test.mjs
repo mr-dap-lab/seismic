@@ -32,9 +32,11 @@ test("wires PDF, keyless 3D regional mapping, parameter help, and Vercel configu
   assert.match(pdf, /jspdf-autotable/);
   assert.match(pdf, /IMPORTANT PROFESSIONAL-USE DISCLAIMER/);
   assert.match(regional, /maplibre-gl/);
-  assert.match(regional, /tiles\.openfreemap\.org\/styles\/bright/);
+  assert.match(regional, /tiles\.openfreemap\.org\/planet\/\d+_\d+_pt\/\{z\}\/\{x\}\/\{y\}\.pbf/);
   assert.match(regional, /fill-extrusion/);
-  assert.match(regional, /buildingLayer\.source/);
+  assert.match(regional, /const MAP_STYLE: StyleSpecification/);
+  assert.match(regional, /source: "openmaptiles"/);
+  assert.doesNotMatch(regional, /styles\/bright/);
   assert.match(regional, /3D district/);
   assert.match(regional, /Click anywhere on the map/);
   assert.match(tooltip, /role="tooltip"/);

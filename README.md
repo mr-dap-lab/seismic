@@ -20,7 +20,7 @@ npm run build
 - MMI, PGA, spectral acceleration, period, drift, and design coefficients
 - Houses, garages, skyscrapers, bridges, tunnels, parking structures, and more
 - Downloadable PDF report with professional-use disclaimer
-- Keyless OpenStreetMap regional simulation with OpenFreeMap vector tiles and 3D buildings
+- Keyless OpenStreetMap regional simulation with a lightweight local MapLibre style, direct OpenFreeMap vector tiles, and 3D buildings
 - Responsive help center and guided walkthrough
 
 ## Deployment
