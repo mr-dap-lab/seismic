@@ -9,6 +9,7 @@ test("builds the production-ready SEISMIC application", async () => {
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(layout, /SEISMIC/);
+  assert.match(layout, /<body suppressHydrationWarning>/);
   assert.match(page, /Interactive 3D/);
   assert.match(page, /Download PDF report/);
   assert.match(page, /Professional-use disclaimer/);
