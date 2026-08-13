@@ -20,7 +20,7 @@ npm run build
 - MMI, PGA, spectral acceleration, period, drift, and design coefficients
 - Houses, garages, skyscrapers, bridges, tunnels, parking structures, and more
 - Downloadable PDF report with professional-use disclaimer
-- Fast raster OpenStreetMap 2D overview with a separate, background-loaded OpenFreeMap vector renderer for instant 3D switching
+- Geolocated OpenStreetMap regional simulation with city search, parameter-driven impact rings, and downloadable PDF map reports
 - Responsive help center and guided walkthrough
 
 ## Deployment
@@ -39,4 +39,4 @@ The repository is ready for Vercel and requires no map API keys. See `PUBLISHING
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Vercel Documentation](https://vercel.com/docs)
 - [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs)
-- [OpenFreeMap](https://openfreemap.org)
+- [OpenStreetMap](https://www.openstreetmap.org/)

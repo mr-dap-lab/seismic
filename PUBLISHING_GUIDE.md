@@ -29,7 +29,7 @@ Check the following before going live:
 - Every structure type renders, including the occupied multi-story car park.
 - Zoom, playback, restart, and report download work.
 - The Help Center, walkthrough spotlights, and LinkedIn link work.
-- The regional map opens with a fast raster 2D overview while its keyless 3D OpenStreetMap building view prepares in the background.
+- The regional map opens near the user's location when permission is granted and supports city search, parameter-driven impact rings, and PDF map reports.
 - The layout remains usable on a phone and desktop.
 - The engineering and liability disclaimer appears in the interface and downloaded report.
 
@@ -71,7 +71,7 @@ On the deployed URL, verify:
 1. The landing artwork loads successfully.
 2. The Three.js model appears and responds to orbit and zoom.
 3. Changing magnitude, intensity, amplitude, frequency, site class, structure, and floors updates the analysis.
-4. The Regional Map opens, city/radius settings update results, clicking the map moves the epicenter, and the 3D District control extrudes nearby OpenStreetMap buildings.
+4. The Regional Map opens, city search and geolocation move the map, clicking sets the epicenter, and the regional PDF contains the current map and impact rings.
 5. The complete walkthrough advances through all five highlighted steps.
 6. The PDF report downloads and includes the professional-use disclaimer.
 7. The LinkedIn contact link opens `https://www.linkedin.com/in/diego-avella/`.

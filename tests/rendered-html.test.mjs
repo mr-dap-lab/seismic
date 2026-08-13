@@ -16,7 +16,7 @@ test("builds the production-ready SEISMIC application", async () => {
   assert.match(page, /RegionalSimulator/);
 });
 
-test("wires PDF, keyless 3D regional mapping, parameter help, and Vercel configuration", async () => {
+test("wires PDF, geolocated regional mapping, parameter help, and Vercel configuration", async () => {
   const [page, regional, tooltip, pdf, css, packageJson, vercel] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/RegionalSimulator.tsx", import.meta.url), "utf8"),
@@ -31,31 +31,25 @@ test("wires PDF, keyless 3D regional mapping, parameter help, and Vercel configu
   assert.match(page, /Regional map/);
   assert.match(pdf, /jspdf-autotable/);
   assert.match(pdf, /IMPORTANT PROFESSIONAL-USE DISCLAIMER/);
+  assert.match(pdf, /createRegionalPdf/);
+  assert.match(pdf, /Map data © OpenStreetMap contributors/);
   assert.match(regional, /maplibre-gl/);
-  assert.match(regional, /tiles\.openfreemap\.org\/planet\/\d+_\d+_pt\/\{z\}\/\{x\}\/\{y\}\.pbf/);
-  assert.match(regional, /fill-extrusion/);
-  assert.match(regional, /"fill-extrusion-base": \["coalesce"/);
-  assert.doesNotMatch(regional, /"fill-extrusion-base": \["case"/);
-  assert.match(regional, /const RASTER_2D_STYLE: StyleSpecification/);
-  assert.match(regional, /const VECTOR_3D_STYLE: StyleSpecification/);
+  assert.match(regional, /const MAP_STYLE: StyleSpecification/);
   assert.match(regional, /tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png/);
   assert.match(regional, /"raster-fade-duration": 0/);
-  assert.match(regional, /source: "openmaptiles"/);
-  assert.doesNotMatch(regional, /styles\/bright/);
-  assert.match(regional, /3D district/);
-  assert.match(regional, /useState\(false\)/);
-  assert.match(regional, /regional-map-preloader/);
-  assert.match(regional, /map\.once\("idle", startVectorMap\)/);
-  assert.match(regional, /setTimeout\(startVectorMap, 900\)/);
-  assert.match(regional, /Preparing 3D/);
-  assert.match(regional, /aria-pressed=/);
-  assert.match(regional, /disabled={!view3DReady && !view3D}/);
-  assert.match(regional, /regional-map-stack/);
+  assert.match(regional, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(regional, /nominatim\.openstreetmap\.org\/search/);
+  assert.match(regional, /function impactRadii/);
+  assert.match(regional, /setData\(zoneData\(center, radii\)\)/);
+  assert.match(regional, /map\.getCanvas\(\)\.toDataURL/);
+  assert.match(regional, /createRegionalPdf/);
+  assert.doesNotMatch(regional, /3D|fill-extrusion|OpenFreeMap|openfreemap|preloader/);
   assert.match(regional, /Click anywhere on the map/);
   assert.match(tooltip, /role="tooltip"/);
   assert.match(tooltip, /aria-describedby/);
   assert.match(css, /\.parameter-tooltip-bubble/);
-  assert.match(css, /\.regional-map-preloader\.active/);
+  assert.match(css, /\.regional-search/);
+  assert.match(css, /\.regional-report/);
   assert.match(css, /\.regional-shell\s*\{/);
   assert.match(packageJson, /"jspdf"/);
   assert.match(packageJson, /"maplibre-gl"/);
