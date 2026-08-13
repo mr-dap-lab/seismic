@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Map, NavigationControl, ScaleControl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
-import type { Feature, FeatureCollection, Point, Polygon } from "geojson";
+import type { Feature, Point, Polygon } from "geojson";
 import { createRegionalPdf } from "../lib/pdf-report.mjs";
 import { ParameterLabel } from "./ParameterTooltip";
 
@@ -10,9 +10,18 @@ type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
 type Coordinate = { lat: number; lng: number };
 type SearchResult = { display_name: string; lat: string; lon: string; type: string };
 type ImpactRadii = { high: number; mid: number; low: number };
+type OverlayGeometry = { width: number; height: number; cx: number; cy: number; highX: number; highY: number; midX: number; midY: number; lowX: number; lowY: number };
 
 const DEFAULT_CENTER: Coordinate = { lat: 40.7128, lng: -74.006 };
 const SITE_FACTORS: Record<SiteClass, number> = { A: 0.72, B: 0.85, C: 1, D: 1.22, E: 1.48, F: 1.75 };
+const SITE_CLASS_NAMES: Record<SiteClass, string> = {
+  A: "Hard rock",
+  B: "Rock",
+  C: "Very dense soil and soft rock",
+  D: "Stiff soil",
+  E: "Soft clay soil",
+  F: "Site-specific evaluation",
+};
 const MAP_STYLE: StyleSpecification = {
   version: 8,
   sources: {
@@ -79,16 +88,35 @@ function circleFeature(center: Coordinate, radiusKm: number, zone: string): Feat
   return { type: "Feature", properties: { zone, radiusKm }, geometry: { type: "Polygon", coordinates: [coordinates] } };
 }
 
-function zoneData(center: Coordinate, radii: ImpactRadii): FeatureCollection<Polygon | Point> {
-  return {
-    type: "FeatureCollection",
-    features: [
-      circleFeature(center, radii.low, "low"),
-      circleFeature(center, radii.mid, "mid"),
-      circleFeature(center, radii.high, "high"),
-      { type: "Feature", properties: { zone: "epicenter" }, geometry: { type: "Point", coordinates: [center.lng, center.lat] } },
-    ],
-  };
+function epicenterFeature(center: Coordinate): Feature<Point> {
+  return { type: "Feature", properties: { zone: "epicenter" }, geometry: { type: "Point", coordinates: [center.lng, center.lat] } };
+}
+
+const IMPACT_ZONES = [
+  { key: "low", radius: "low", fill: "#f1c75b", line: "#d7aa3c", opacity: 0.2 },
+  { key: "mid", radius: "mid", fill: "#ee925b", line: "#dc7543", opacity: 0.25 },
+  { key: "high", radius: "high", fill: "#e35f4a", line: "#cb4737", opacity: 0.3 },
+] as const;
+
+function addImpactLayers(map: Map, center: Coordinate, radii: ImpactRadii) {
+  IMPACT_ZONES.forEach((zone) => {
+    const sourceId = `seismic-${zone.key}`;
+    map.addSource(sourceId, { type: "geojson", data: circleFeature(center, radii[zone.radius], zone.key) });
+    map.addLayer({ id: `${sourceId}-fill`, type: "fill", source: sourceId, paint: { "fill-color": zone.fill, "fill-opacity": zone.opacity } });
+    map.addLayer({ id: `${sourceId}-line`, type: "line", source: sourceId, paint: { "line-color": zone.line, "line-width": 3 } });
+  });
+  map.addSource("seismic-epicenter-source", { type: "geojson", data: epicenterFeature(center) });
+  map.addLayer({
+    id: "seismic-epicenter", type: "circle", source: "seismic-epicenter-source",
+    paint: { "circle-radius": 8, "circle-color": "#d9432f", "circle-stroke-color": "#ffffff", "circle-stroke-width": 3 },
+  });
+}
+
+function updateImpactLayers(map: Map, center: Coordinate, radii: ImpactRadii) {
+  IMPACT_ZONES.forEach((zone) => {
+    (map.getSource(`seismic-${zone.key}`) as GeoJSONSource | undefined)?.setData(circleFeature(center, radii[zone.radius], zone.key));
+  });
+  (map.getSource("seismic-epicenter-source") as GeoJSONSource | undefined)?.setData(epicenterFeature(center));
 }
 
 function fitImpactArea(map: Map, center: Coordinate, radiusKm: number, duration = 500) {
@@ -100,9 +128,56 @@ function fitImpactArea(map: Map, center: Coordinate, radiusKm: number, duration 
   );
 }
 
+function projectImpactGeometry(map: Map, center: Coordinate, radii: ImpactRadii): OverlayGeometry {
+  const container = map.getContainer();
+  const projectedCenter = map.project([center.lng, center.lat]);
+  const projectedRadius = (radiusKm: number) => {
+    const longitudeDelta = radiusKm / (111.32 * Math.max(Math.cos(center.lat * Math.PI / 180), 0.1));
+    const latitudeDelta = radiusKm / 110.574;
+    const east = map.project([center.lng + longitudeDelta, center.lat]);
+    const north = map.project([center.lng, center.lat + latitudeDelta]);
+    return { x: Math.abs(east.x - projectedCenter.x), y: Math.abs(north.y - projectedCenter.y) };
+  };
+  const high = projectedRadius(radii.high);
+  const mid = projectedRadius(radii.mid);
+  const low = projectedRadius(radii.low);
+  return { width: container.clientWidth, height: container.clientHeight, cx: projectedCenter.x, cy: projectedCenter.y, highX: high.x, highY: high.y, midX: mid.x, midY: mid.y, lowX: low.x, lowY: low.y };
+}
+
+async function captureImpactMap(map: Map, overlay: SVGSVGElement | null) {
+  const mapCanvas = map.getCanvas();
+  if (!overlay) return mapCanvas.toDataURL("image/jpeg", 0.9);
+  const output = document.createElement("canvas");
+  output.width = mapCanvas.width;
+  output.height = mapCanvas.height;
+  const context = output.getContext("2d");
+  if (!context) return mapCanvas.toDataURL("image/jpeg", 0.9);
+  context.drawImage(mapCanvas, 0, 0);
+  const serialized = new XMLSerializer().serializeToString(overlay);
+  const overlayUrl = URL.createObjectURL(new Blob([serialized], { type: "image/svg+xml;charset=utf-8" }));
+  try {
+    const overlayImage = new Image();
+    await new Promise<void>((resolve, reject) => {
+      overlayImage.onload = () => resolve();
+      overlayImage.onerror = () => reject(new Error("Impact overlay capture failed"));
+      overlayImage.src = overlayUrl;
+    });
+    context.drawImage(overlayImage, 0, 0, output.width, output.height);
+    return output.toDataURL("image/jpeg", 0.9);
+  } finally {
+    URL.revokeObjectURL(overlayUrl);
+  }
+}
+
 export default function RegionalSimulator() {
   const mapRef = useRef<HTMLDivElement>(null);
+  const impactOverlayRef = useRef<SVGSVGElement>(null);
   const mapInstanceRef = useRef<Map | null>(null);
+  const placingEpicenterRef = useRef(false);
+  const userSelectedLocationRef = useRef(false);
+  const radiiRef = useRef<ImpactRadii>(impactRadii(7.2, 12, 45, "D"));
+  const centerRef = useRef<Coordinate>(DEFAULT_CENTER);
+  const overlayUpdateRef = useRef<() => void>(() => undefined);
   const [center, setCenter] = useState<Coordinate>(DEFAULT_CENTER);
   const [locationLabel, setLocationLabel] = useState("Detecting your area…");
   const [magnitude, setMagnitude] = useState(7.2);
@@ -116,6 +191,8 @@ export default function RegionalSimulator() {
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
+  const [placingEpicenter, setPlacingEpicenter] = useState(false);
+  const [overlayGeometry, setOverlayGeometry] = useState<OverlayGeometry | null>(null);
 
   const radii = useMemo(() => impactRadii(magnitude, depth, radius, siteClass), [magnitude, depth, radius, siteClass]);
   const centerMotion = useMemo(() => groundMotion(magnitude, depth, 0, siteClass), [magnitude, depth, siteClass]);
@@ -147,23 +224,16 @@ export default function RegionalSimulator() {
     map.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(mapRef.current);
+    const updateOverlay = () => setOverlayGeometry(projectImpactGeometry(map, centerRef.current, radiiRef.current));
+    overlayUpdateRef.current = updateOverlay;
+    map.on("move", updateOverlay);
+    map.on("resize", updateOverlay);
 
     map.on("style.load", () => {
       const initialRadii = impactRadii(7.2, 12, 45, "D");
-      map.addSource("seismic-zones", { type: "geojson", data: zoneData(DEFAULT_CENTER, initialRadii) });
-      map.addLayer({
-        id: "seismic-zone-fill", type: "fill", source: "seismic-zones", filter: ["==", ["geometry-type"], "Polygon"],
-        paint: { "fill-color": ["match", ["get", "zone"], "high", "#e35f4a", "mid", "#ee925b", "#f1c75b"], "fill-opacity": 0.24 },
-      });
-      map.addLayer({
-        id: "seismic-zone-line", type: "line", source: "seismic-zones", filter: ["==", ["geometry-type"], "Polygon"],
-        paint: { "line-color": ["match", ["get", "zone"], "high", "#cb4737", "mid", "#dc7543", "#d7aa3c"], "line-width": 2.5 },
-      });
-      map.addLayer({
-        id: "seismic-epicenter", type: "circle", source: "seismic-zones", filter: ["==", ["geometry-type"], "Point"],
-        paint: { "circle-radius": 8, "circle-color": "#d9432f", "circle-stroke-color": "#ffffff", "circle-stroke-width": 3 },
-      });
+      addImpactLayers(map, DEFAULT_CENTER, initialRadii);
       fitImpactArea(map, DEFAULT_CENTER, initialRadii.low, 0);
+      updateOverlay();
       setMapReady(true);
       setMapError("");
 
@@ -173,6 +243,7 @@ export default function RegionalSimulator() {
       }
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => {
+          if (userSelectedLocationRef.current) return;
           const detected = { lat: coords.latitude, lng: coords.longitude };
           setCenter(detected);
           setLocationLabel("Your detected area");
@@ -182,22 +253,43 @@ export default function RegionalSimulator() {
       );
     });
     map.on("click", ({ lngLat }) => {
-      setCenter({ lat: lngLat.lat, lng: lngLat.lng });
+      if (!placingEpicenterRef.current) return;
+      const selectedCenter = { lat: lngLat.lat, lng: lngLat.lng };
+      userSelectedLocationRef.current = true;
+      centerRef.current = selectedCenter;
+      updateImpactLayers(map, selectedCenter, radiiRef.current);
+      fitImpactArea(map, selectedCenter, radiiRef.current.low);
+      map.triggerRepaint();
+      setCenter(selectedCenter);
       setLocationLabel("Custom epicenter");
+      placingEpicenterRef.current = false;
+      setPlacingEpicenter(false);
     });
 
     return () => {
       resizeObserver.disconnect();
       mapInstanceRef.current = null;
+      overlayUpdateRef.current = () => undefined;
       map.remove();
     };
   }, []);
 
   useEffect(() => {
+    placingEpicenterRef.current = placingEpicenter;
+  }, [placingEpicenter]);
+
+  useEffect(() => {
+    radiiRef.current = radii;
+    centerRef.current = center;
+  }, [center, radii]);
+
+  useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapReady) return;
-    (map.getSource("seismic-zones") as GeoJSONSource | undefined)?.setData(zoneData(center, radii));
+    updateImpactLayers(map, center, radii);
     fitImpactArea(map, center, radii.low);
+    map.triggerRepaint();
+    overlayUpdateRef.current();
   }, [center, radii, mapReady]);
 
   const searchCity = async (event: FormEvent<HTMLFormElement>) => {
@@ -223,10 +315,38 @@ export default function RegionalSimulator() {
 
   const selectSearchResult = (result: SearchResult) => {
     const selected = { lat: Number(result.lat), lng: Number(result.lon) };
+    userSelectedLocationRef.current = true;
     setCenter(selected);
     setLocationLabel(result.display_name);
     setQuery(result.display_name.split(",")[0]);
     setSearchResults([]);
+    setPlacingEpicenter(false);
+  };
+
+  const toggleEpicenterPlacement = () => {
+    const nextState = !placingEpicenterRef.current;
+    placingEpicenterRef.current = nextState;
+    setPlacingEpicenter(nextState);
+  };
+
+  const cancelEpicenterPlacement = () => {
+    placingEpicenterRef.current = false;
+    setPlacingEpicenter(false);
+  };
+
+  const resetRegional = () => {
+    userSelectedLocationRef.current = true;
+    centerRef.current = DEFAULT_CENTER;
+    cancelEpicenterPlacement();
+    setCenter(DEFAULT_CENTER);
+    setLocationLabel("New York City, USA");
+    setMagnitude(7.2);
+    setDepth(12);
+    setRadius(45);
+    setSiteClass("D");
+    setQuery("");
+    setSearchResults([]);
+    setSearchError("");
   };
 
   const downloadRegionalReport = async () => {
@@ -243,7 +363,7 @@ export default function RegionalSimulator() {
       map.triggerRepaint();
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       let mapImage: string | undefined;
-      try { mapImage = map.getCanvas().toDataURL("image/jpeg", 0.9); } catch { mapImage = undefined; }
+      try { mapImage = await captureImpactMap(map, impactOverlayRef.current); } catch { mapImage = undefined; }
       await createRegionalPdf({
         filename: "seismic-regional-impact-report.pdf",
         location: locationLabel,
@@ -268,37 +388,60 @@ export default function RegionalSimulator() {
   };
 
   return (
-    <section className="regional-shell">
+    <section className="regional-shell" data-impact-renderer="projected-overlay">
       <aside className="regional-controls">
-        <span className="eyebrow">GEOGRAPHIC SCENARIO</span>
-        <h1>Regional shaking model</h1>
-        <p>Search for a place or click the map to position the epicenter. Impact rings update from the complete scenario.</p>
+        <div className="regional-title-row"><div><span className="eyebrow">GEOGRAPHIC SCENARIO</span><h1>Regional shaking model</h1></div><button className="text-button" type="button" onClick={resetRegional}>Reset</button></div>
+        <p>Define the scenario, then search for a place or activate epicenter placement. Impact rings update from the complete scenario.</p>
+
+        <button
+          type="button"
+          className={`epicenter-tool${placingEpicenter ? " active" : ""}`}
+          aria-pressed={placingEpicenter}
+          disabled={!mapReady}
+          onClick={toggleEpicenterPlacement}
+        >
+          <i aria-hidden="true"><span /></i>
+          <span><strong>{placingEpicenter ? "Cancel epicenter placement" : "Set epicenter"}</strong><small>{placingEpicenter ? "Click a point on the map" : "Choose an exact point interactively"}</small></span>
+        </button>
 
         <form className="regional-search" onSubmit={searchCity}>
           <ParameterLabel label="Find a city or place" description="Search OpenStreetMap by city or place name, then select a result to move the epicenter and impact rings." />
-          <div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="e.g. Bogotá, Colombia" aria-label="City or place" /><button type="submit" disabled={searchBusy}>{searchBusy ? "…" : "Search"}</button></div>
-          {searchError && <p role="alert">{searchError}</p>}
+          <p>Jump to a location and center the regional scenario.</p>
+          <div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Bogotá, Colombia" aria-label="City or place" autoComplete="off" /><button type="submit" disabled={searchBusy}><span aria-hidden="true">⌕</span>{searchBusy ? "Searching…" : "Search"}</button></div>
+          {searchError && <p className="regional-search-error" role="alert">{searchError}</p>}
           {searchResults.length > 0 && <ul aria-label="Place search results">{searchResults.map((result) => <li key={`${result.lat}-${result.lon}`}><button type="button" onClick={() => selectSearchResult(result)}>{result.display_name}</button></li>)}</ul>}
-          <small>Search data © OpenStreetMap contributors</small>
+          <small>Location data © OpenStreetMap contributors</small>
         </form>
+
+        <label className="regional-range"><span><ParameterLabel label="Magnitude" description="The earthquake's logarithmic energy measure used by the regional attenuation model." /><strong>{magnitude.toFixed(1)}</strong></span><input type="range" min="4" max="9.5" step="0.1" value={magnitude} onChange={(event) => setMagnitude(Number(event.target.value))} /></label>
+        <label className="regional-range"><span><ParameterLabel label="Focal depth" description="Vertical distance to the earthquake focus. Deeper events generally produce weaker surface motion nearby." /><strong>{depth} km</strong></span><input type="range" min="2" max="80" step="1" value={depth} onChange={(event) => setDepth(Number(event.target.value))} /></label>
+        <label className="regional-range"><span><ParameterLabel label="Analysis radius" description="Maximum regional distance available to the impact-ring model." /><strong>{radius} km</strong></span><input type="range" min="5" max="150" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /></label>
+        <label className="regional-field"><ParameterLabel label="Representative site class" description="Assumed soil or rock class used to amplify or reduce calculated ground motion." /><select value={siteClass} onChange={(event) => setSiteClass(event.target.value as SiteClass)}>{(Object.keys(SITE_FACTORS) as SiteClass[]).map((site) => <option value={site} key={site}>Class {site} — {SITE_CLASS_NAMES[site]}</option>)}</select></label>
 
         <div className="coordinate-grid">
           <label className="regional-field"><ParameterLabel label="Latitude" description="The north–south coordinate of the modeled epicenter in decimal degrees." /><input type="number" step="0.0001" value={center.lat.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lat: Number(event.target.value) }))} /></label>
           <label className="regional-field"><ParameterLabel label="Longitude" description="The east–west coordinate of the modeled epicenter in decimal degrees." /><input type="number" step="0.0001" value={center.lng.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lng: Number(event.target.value) }))} /></label>
         </div>
-        <label className="regional-range"><span><ParameterLabel label="Magnitude" description="The earthquake's logarithmic energy measure used by the regional attenuation model." /><strong>{magnitude.toFixed(1)}</strong></span><input type="range" min="4" max="9.5" step="0.1" value={magnitude} onChange={(event) => setMagnitude(Number(event.target.value))} /></label>
-        <label className="regional-range"><span><ParameterLabel label="Focal depth" description="Vertical distance to the earthquake focus. Deeper events generally produce weaker surface motion nearby." /><strong>{depth} km</strong></span><input type="range" min="2" max="80" step="1" value={depth} onChange={(event) => setDepth(Number(event.target.value))} /></label>
-        <label className="regional-range"><span><ParameterLabel label="Analysis radius" description="Maximum regional distance available to the impact-ring model." /><strong>{radius} km</strong></span><input type="range" min="5" max="150" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /></label>
-        <label className="regional-field"><ParameterLabel label="Representative site class" description="Assumed soil or rock class used to amplify or reduce calculated ground motion." /><select value={siteClass} onChange={(event) => setSiteClass(event.target.value as SiteClass)}>{Object.keys(SITE_FACTORS).map((site) => <option value={site} key={site}>Class {site}</option>)}</select></label>
-        <p className="regional-note">Click anywhere on the map to set a custom epicenter. Location access is used only to choose the initial area and is not stored.</p>
+
+        <p className="regional-note">Location access is used only to choose the initial area and is not stored. Activate <strong>Set epicenter</strong>, then click once on the map.</p>
       </aside>
 
       <div className="regional-map-panel">
         <header><div><span className="eyebrow">OPENSTREETMAP IMPACT MAP</span><strong>{locationLabel}</strong></div><span className="map-provider">2D · OpenStreetMap</span></header>
-        <div className="regional-map" ref={mapRef} aria-label="Interactive OpenStreetMap earthquake impact map" />
+        <div className="regional-map-stage">
+          <div className={`regional-map${placingEpicenter ? " placing-epicenter" : ""}`} ref={mapRef} aria-label="Interactive OpenStreetMap earthquake impact map" />
+          {overlayGeometry && <svg ref={impactOverlayRef} className="regional-impact-overlay" viewBox={`0 0 ${overlayGeometry.width} ${overlayGeometry.height}`} aria-hidden="true">
+            <ellipse className="impact-ring impact-ring-low" cx={overlayGeometry.cx} cy={overlayGeometry.cy} rx={overlayGeometry.lowX} ry={overlayGeometry.lowY} fill="#f1c75b" fillOpacity="0.18" stroke="#d7aa3c" strokeWidth="3" />
+            <ellipse className="impact-ring impact-ring-mid" cx={overlayGeometry.cx} cy={overlayGeometry.cy} rx={overlayGeometry.midX} ry={overlayGeometry.midY} fill="#ee925b" fillOpacity="0.22" stroke="#dc7543" strokeWidth="3" />
+            <ellipse className="impact-ring impact-ring-high" cx={overlayGeometry.cx} cy={overlayGeometry.cy} rx={overlayGeometry.highX} ry={overlayGeometry.highY} fill="#e35f4a" fillOpacity="0.28" stroke="#cb4737" strokeWidth="3" />
+            <circle className="impact-epicenter-halo" cx={overlayGeometry.cx} cy={overlayGeometry.cy} r="12" fill="#d9432f" fillOpacity="0.2" stroke="#ffffff" strokeOpacity="0.75" strokeWidth="2" />
+            <circle className="impact-epicenter-point" cx={overlayGeometry.cx} cy={overlayGeometry.cy} r="7" fill="#d9432f" stroke="#ffffff" strokeWidth="3" />
+          </svg>}
+        </div>
         {!mapReady && !mapError && <div className="map-loading" role="status"><i /><span>Loading map…</span></div>}
         {mapError && <p className="map-error">{mapError}</p>}
-        <div className="map-legend"><span><i className="zone-high" /> Highest · {radii.high.toFixed(0)} km</span><span><i className="zone-mid" /> Moderate · {radii.mid.toFixed(0)} km</span><span><i className="zone-low" /> Lower · {radii.low.toFixed(0)} km</span><b>Click map to move epicenter</b></div>
+        {placingEpicenter && <div className="epicenter-map-prompt" role="status"><i aria-hidden="true" /><span><strong>Set epicenter</strong>Click once on the map</span><button type="button" onClick={cancelEpicenterPlacement}>Cancel</button></div>}
+        <div className="map-legend"><span><i className="zone-high" /> Highest · {radii.high.toFixed(0)} km</span><span><i className="zone-mid" /> Moderate · {radii.mid.toFixed(0)} km</span><span><i className="zone-low" /> Lower · {radii.low.toFixed(0)} km</span><b>{placingEpicenter ? "Click the map to place epicenter" : "Activate Set epicenter to choose a point"}</b></div>
       </div>
 
       <aside className="regional-results">
@@ -307,7 +450,7 @@ export default function RegionalSimulator() {
         <div className="regional-metrics"><div><span>Epicenter PGA</span><strong>{centerMotion.pga.toFixed(3)} g</strong></div><div><span>Outer-edge PGA</span><strong>{edgeMotion.pga.toFixed(3)} g</strong></div><div><span>Modeled area</span><strong>{Math.round(Math.PI * radii.low ** 2).toLocaleString()} km²</strong></div><div><span>Site amplification</span><strong>× {SITE_FACTORS[siteClass].toFixed(2)}</strong></div></div>
         <h3>Distance profile</h3>
         <div className="distance-profile">{samples.map((sample) => <div key={sample.distance}><span>{Math.round(sample.distance)} km</span><i><b style={{ width: `${sample.pga / Math.max(centerMotion.pga, 0.01) * 100}%` }} /></i><strong>{sample.pga.toFixed(3)} g</strong></div>)}</div>
-        <section className="regional-report"><button type="button" onClick={downloadRegionalReport} disabled={reportBusy || !mapReady}><span>⇩</span>{reportBusy ? "Creating PDF…" : "Download regional PDF"}</button><p>Includes the current map, impact rings, inputs, calculated results, OpenStreetMap attribution, and professional-use disclaimer.</p></section>
+        <section className="report-section"><button className="report-button" type="button" onClick={downloadRegionalReport} disabled={reportBusy || !mapReady}><span>⇩</span>{reportBusy ? "Creating PDF…" : "Download regional PDF"}</button><p>Includes the current map, impact rings, inputs, calculated results, OpenStreetMap attribution, and professional-use disclaimer.</p></section>
         <div className="regional-disclaimer"><strong>Screening model only</strong><p>Results use simplified attenuation and uniform site assumptions. They are not a hazard map, emergency forecast, or substitute for official seismic, geotechnical, or engineering analysis.</p></div>
       </aside>
     </section>

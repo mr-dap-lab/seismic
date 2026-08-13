@@ -76,13 +76,13 @@ const DEFAULT_CONFIG: SimulationConfig = {
   reliability: 1,
 };
 
-const SITE_FACTORS: Record<SiteClass, number> = {
-  A: 0.72,
-  B: 0.85,
-  C: 1,
-  D: 1.22,
-  E: 1.48,
-  F: 1.75,
+const SITE_CLASSES: Record<SiteClass, { label: string; amplification: number }> = {
+  A: { label: "Hard rock", amplification: 0.72 },
+  B: { label: "Rock", amplification: 0.85 },
+  C: { label: "Very dense soil and soft rock", amplification: 1 },
+  D: { label: "Stiff soil", amplification: 1.22 },
+  E: { label: "Soft clay soil", amplification: 1.48 },
+  F: { label: "Site-specific evaluation", amplification: 1.75 },
 };
 
 const STRUCTURES: Record<StructureType, { label: string; periodC: number; stiffness: number; defaultR: number }> = {
@@ -145,7 +145,7 @@ function calculateMetrics(config: SimulationConfig): Metrics {
   const vehicleMassFactor = config.structureKind === "carPark" ? 1 + (config.vehicleOccupancy / 100) * 0.2 : 1;
   const effectiveMassFactor = kind.massFactor * vehicleMassFactor;
   const period = clamp(structure.periodC * Math.pow(height, 0.75) * kind.periodFactor * Math.sqrt(effectiveMassFactor) / Math.sqrt(structure.stiffness), 0.12, 4.5);
-  const siteFactor = SITE_FACTORS[config.siteClass];
+  const siteFactor = SITE_CLASSES[config.siteClass].amplification;
   const magnitudeFactor = clamp(0.76 + (config.magnitude - 5) * 0.085, 0.55, 1.12);
   const intensityFactor = 0.72 + config.intensity * 0.035;
   const pga = clamp(config.amplitude * siteFactor * magnitudeFactor * intensityFactor, 0.005, 2.5);
@@ -942,10 +942,10 @@ export default function Home() {
                 label="Site class"
                 description="A–F soil and rock classification used to estimate how local ground conditions amplify shaking. Class A is hard rock; softer classes generally amplify more."
                 value={config.siteClass}
-                options={(Object.keys(SITE_FACTORS) as SiteClass[]).map((site) => ({ value: site, label: `${site} — ${site === "A" ? "Hard rock" : site === "B" ? "Rock" : site === "C" ? "Dense soil" : site === "D" ? "Stiff soil" : site === "E" ? "Soft clay" : "Site-specific"}` }))}
+                options={(Object.keys(SITE_CLASSES) as SiteClass[]).map((site) => ({ value: site, label: `${site} — ${SITE_CLASSES[site].label}` }))}
                 onChange={(value) => update("siteClass", value as SiteClass)}
               />
-              <div className="site-note"><span>Site amplification</span><strong>× {SITE_FACTORS[config.siteClass].toFixed(2)}</strong></div>
+              <div className="site-note"><span>Site amplification · Class {config.siteClass}</span><strong>× {SITE_CLASSES[config.siteClass].amplification.toFixed(2)}</strong></div>
             </div>
           ) : (
             <div className="controls-stack">
