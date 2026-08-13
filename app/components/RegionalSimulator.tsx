@@ -9,10 +9,29 @@ type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
 type City = { name: string; lat: number; lng: number; site: SiteClass };
 type Coordinate = { lat: number; lng: number };
 
-// A small, versioned OpenFreeMap snapshot avoids downloading the provider's
-// complete style, sprite sheet, and hundreds of unused layer definitions.
+// The visible 2D map uses a small raster style so the first useful frame needs
+// only a handful of cached PNG requests. OpenFreeMap vectors load separately
+// in the background for the 3D district view.
+const RASTER_2D_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 19,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    { id: "background", type: "background", paint: { "background-color": "#e9eeeb" } },
+    { id: "osm-raster", type: "raster", source: "osm", paint: { "raster-fade-duration": 0 } },
+  ],
+};
+
 const OFM_VECTOR_TILES = "https://tiles.openfreemap.org/planet/20260802_080001_pt/{z}/{x}/{y}.pbf";
-const MAP_STYLE: StyleSpecification = {
+const VECTOR_3D_STYLE: StyleSpecification = {
   version: 8,
   glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
   sources: {
@@ -127,6 +146,51 @@ function zoneData(center: Coordinate, radius: number): FeatureCollection<Polygon
   };
 }
 
+function addSeismicLayers(map: Map, data: FeatureCollection<Polygon | Point>, beforeId?: string) {
+  map.addSource("seismic-zones", { type: "geojson", data });
+  map.addLayer({
+    id: "seismic-zone-fill",
+    type: "fill",
+    source: "seismic-zones",
+    filter: ["==", ["geometry-type"], "Polygon"],
+    paint: {
+      "fill-color": ["match", ["get", "zone"], "high", "#e35f4a", "mid", "#ee925b", "#f1c75b"],
+      "fill-opacity": 0.18,
+    },
+  }, beforeId);
+  map.addLayer({
+    id: "seismic-zone-line",
+    type: "line",
+    source: "seismic-zones",
+    filter: ["==", ["geometry-type"], "Polygon"],
+    paint: { "line-color": ["match", ["get", "zone"], "high", "#cb4737", "mid", "#dc7543", "#d7aa3c"], "line-width": 2 },
+  }, beforeId);
+  map.addLayer({
+    id: "seismic-epicenter",
+    type: "circle",
+    source: "seismic-zones",
+    filter: ["==", ["geometry-type"], "Point"],
+    paint: { "circle-radius": 7, "circle-color": "#e6663f", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
+  });
+}
+
+function addBuildingExtrusions(map: Map) {
+  map.addLayer({
+    id: "seismic-3d-buildings",
+    type: "fill-extrusion",
+    source: "openmaptiles",
+    "source-layer": "building",
+    minzoom: 15,
+    filter: ["!=", ["get", "hide_3d"], true],
+    paint: {
+      "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 6], 0, "#c7cec9", 80, "#d4aa83", 220, "#e6663f"],
+      "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 15, 0, 15.6, ["coalesce", ["get", "render_height"], 6]],
+      "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+      "fill-extrusion-opacity": 0.9,
+    },
+  }, "place-label");
+}
+
 export default function RegionalSimulator() {
   const mapRef = useRef<HTMLDivElement>(null);
   const preloadMapRef = useRef<HTMLDivElement>(null);
@@ -142,6 +206,7 @@ export default function RegionalSimulator() {
   const [view3DReady, setView3DReady] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
+  const scenarioRef = useRef({ center, radius });
 
   const centerMotion = useMemo(() => groundMotion(magnitude, depth, 0, siteClass), [magnitude, depth, siteClass]);
   const edgeMotion = useMemo(() => groundMotion(magnitude, depth, radius, siteClass), [magnitude, depth, radius, siteClass]);
@@ -151,144 +216,114 @@ export default function RegionalSimulator() {
   }), [magnitude, depth, radius, siteClass]);
 
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
-    const container = mapRef.current;
+    scenarioRef.current = { center, radius };
+  }, [center, radius]);
+
+  useEffect(() => {
+    if (!mapRef.current || !preloadMapRef.current || mapInstanceRef.current) return;
+    const mapContainer = mapRef.current;
+    const vectorContainer = preloadMapRef.current;
     let map: Map;
+    let vectorMap: Map | null = null;
+    let disposed = false;
+    let vectorStartTimer = 0;
+
     try {
       map = new Map({
-        container,
-        style: MAP_STYLE,
+        container: mapContainer,
+        style: RASTER_2D_STYLE,
         center: [CITIES[0].lng, CITIES[0].lat],
         zoom: 9,
         pitch: 0,
         bearing: 0,
-        canvasContextAttributes: { antialias: true },
       });
     } catch {
       window.setTimeout(() => setMapError("The interactive map could not start. WebGL may be unavailable in this browser."), 0);
       return;
     }
+
     mapInstanceRef.current = map;
-    map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
 
-    const resizeObserver = new ResizeObserver(() => map.resize());
-    resizeObserver.observe(container);
-    map.on("style.load", () => {
-      setMapError("");
-      try {
-        map.addSource("seismic-zones", { type: "geojson", data: zoneData(CITIES[0], 45) });
-        map.addLayer({
-          id: "seismic-zone-fill",
-          type: "fill",
-          source: "seismic-zones",
-          filter: ["==", ["geometry-type"], "Polygon"],
-          paint: {
-            "fill-color": ["match", ["get", "zone"], "high", "#e35f4a", "mid", "#ee925b", "#f1c75b"],
-            "fill-opacity": 0.18,
-          },
-        }, "place-label");
-        map.addLayer({
-          id: "seismic-zone-line",
-          type: "line",
-          source: "seismic-zones",
-          filter: ["==", ["geometry-type"], "Polygon"],
-          paint: { "line-color": ["match", ["get", "zone"], "high", "#cb4737", "mid", "#dc7543", "#d7aa3c"], "line-width": 2 },
-        }, "place-label");
-        map.addLayer({
-          id: "seismic-3d-buildings",
-          type: "fill-extrusion",
-          source: "openmaptiles",
-          "source-layer": "building",
-          minzoom: 15,
-          layout: { visibility: "none" },
-          filter: ["!=", ["get", "hide_3d"], true],
-          paint: {
-            "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 6], 0, "#c7cec9", 80, "#d4aa83", 220, "#e6663f"],
-            "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 15, 0, 15.6, ["coalesce", ["get", "render_height"], 6]],
-            "fill-extrusion-base": ["case", [">=", ["zoom"], 15.6], ["coalesce", ["get", "render_min_height"], 0], 0],
-            "fill-extrusion-opacity": 0.9,
-          },
-        }, "place-label");
-        map.addLayer({
-          id: "seismic-epicenter",
-          type: "circle",
-          source: "seismic-zones",
-          filter: ["==", ["geometry-type"], "Point"],
-          paint: { "circle-radius": 7, "circle-color": "#e6663f", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
-        });
-      } catch {
-        setMapError("The base map loaded, but one or more seismic overlays could not be displayed.");
-      }
-      map.resize();
-      setMapReady(true);
+    const moveEpicenter = (event: { lngLat: { lat: number; lng: number } }) => {
+      setCenter({ lat: event.lngLat.lat, lng: event.lngLat.lng });
+    };
 
-      // Warm the high-zoom building tiles and compile the extrusion layer in a
-      // small off-screen map. The visible 2D overview stays fast and stable.
-      if (preloadMapRef.current && !preloadInstanceRef.current) {
-        const preloadMap = new Map({
-          container: preloadMapRef.current,
-          style: MAP_STYLE,
-          center: [CITIES[0].lng, CITIES[0].lat],
-          zoom: 15.5,
-          pitch: 55,
-          bearing: -18,
-          interactive: false,
-          attributionControl: false,
-          canvasContextAttributes: { antialias: true },
-        });
-        preloadInstanceRef.current = preloadMap;
-        preloadMap.on("style.load", () => {
-          preloadMap.addLayer({
-            id: "preload-3d-buildings",
-            type: "fill-extrusion",
-            source: "openmaptiles",
-            "source-layer": "building",
-            minzoom: 15,
-            paint: {
-              "fill-extrusion-color": "#c7cec9",
-              "fill-extrusion-height": ["coalesce", ["get", "render_height"], 6],
-              "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-              "fill-extrusion-opacity": 0.9,
-            },
-          });
-          preloadMap.once("idle", () => setView3DReady(true));
-        });
-      }
+    const startVectorMap = () => {
+      if (disposed || vectorMap) return;
+      vectorMap = new Map({
+        container: vectorContainer,
+        style: VECTOR_3D_STYLE,
+        center: [scenarioRef.current.center.lng, scenarioRef.current.center.lat],
+        zoom: 15.5,
+        pitch: 55,
+        bearing: -18,
+        canvasContextAttributes: { antialias: true },
+      });
+      preloadInstanceRef.current = vectorMap;
+      vectorMap.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
+      vectorMap.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
+      vectorMap.on("style.load", () => {
+        if (!vectorMap) return;
+        const scenario = scenarioRef.current;
+        addSeismicLayers(vectorMap, zoneData(scenario.center, scenario.radius), "place-label");
+        addBuildingExtrusions(vectorMap);
+        vectorMap.resize();
+        vectorMap.once("idle", () => setView3DReady(true));
+      });
+      vectorMap.on("click", moveEpicenter);
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.resize();
+      vectorMap?.resize();
     });
-    map.on("click", (event) => setCenter({ lat: event.lngLat.lat, lng: event.lngLat.lng }));
+    resizeObserver.observe(mapContainer.parentElement ?? mapContainer);
+
+    map.on("style.load", () => {
+      const scenario = scenarioRef.current;
+      addSeismicLayers(map, zoneData(scenario.center, scenario.radius));
+      map.resize();
+      setMapError("");
+      setMapReady(true);
+      map.once("idle", startVectorMap);
+      vectorStartTimer = window.setTimeout(startVectorMap, 900);
+    });
+    map.on("click", moveEpicenter);
 
     return () => {
+      disposed = true;
+      window.clearTimeout(vectorStartTimer);
       resizeObserver.disconnect();
       mapInstanceRef.current = null;
-      preloadInstanceRef.current?.remove();
       preloadInstanceRef.current = null;
       map.remove();
+      vectorMap?.remove();
     };
   }, []);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
+    const vectorMap = preloadInstanceRef.current;
     if (!map || !mapReady) return;
-    (map.getSource("seismic-zones") as GeoJSONSource | undefined)?.setData(zoneData(center, radius));
-    if (view3D) {
-      map.setLayoutProperty("seismic-3d-buildings", "visibility", "visible");
-      map.easeTo({ center: [center.lng, center.lat], zoom: 15.5, pitch: 55, bearing: -18, duration: 750 });
+    const data = zoneData(center, radius);
+    (map.getSource("seismic-zones") as GeoJSONSource | undefined)?.setData(data);
+    (vectorMap?.getSource("seismic-zones") as GeoJSONSource | undefined)?.setData(data);
+
+    const latDelta = radius / 110.574;
+    const lngDelta = radius / (111.32 * Math.cos(center.lat * Math.PI / 180));
+    if (view3D && vectorMap) {
+      vectorMap.easeTo({ center: [center.lng, center.lat], zoom: 15.5, pitch: 55, bearing: -18, duration: 550 });
     } else {
-      map.setLayoutProperty("seismic-3d-buildings", "visibility", "none");
-      const latDelta = radius / 110.574;
-      const lngDelta = radius / (111.32 * Math.cos(center.lat * Math.PI / 180));
-      map.fitBounds([[center.lng - lngDelta, center.lat - latDelta], [center.lng + lngDelta, center.lat + latDelta]], { padding: 58, pitch: 0, bearing: 0, duration: 750 });
+      map.fitBounds([[center.lng - lngDelta, center.lat - latDelta], [center.lng + lngDelta, center.lat + latDelta]], { padding: 58, pitch: 0, bearing: 0, duration: 350 });
+      if (vectorMap) {
+        window.setTimeout(() => setView3DReady(false), 0);
+        vectorMap.jumpTo({ center: [center.lng, center.lat], zoom: 15.5, pitch: 55, bearing: -18 });
+        vectorMap.once("idle", () => setView3DReady(true));
+      }
     }
   }, [center, radius, view3D, mapReady]);
-
-  useEffect(() => {
-    const preloadMap = preloadInstanceRef.current;
-    if (!preloadMap || view3D) return;
-    window.setTimeout(() => setView3DReady(false), 0);
-    preloadMap.jumpTo({ center: [center.lng, center.lat], zoom: 15.5, pitch: 55, bearing: -18 });
-    preloadMap.once("idle", () => setView3DReady(true));
-  }, [center, view3D]);
 
   const selectCity = (index: number) => {
     const city = CITIES[index];
@@ -322,13 +357,15 @@ export default function RegionalSimulator() {
             <span className={`map-warm-status${view3DReady ? " ready" : ""}`}><i />{view3DReady ? "3D ready" : "Preparing 3D"}</span>
             <div className="map-view-switcher" role="group" aria-label="Map view">
               <button type="button" className={!view3D ? "active" : ""} aria-label="2D area overview" aria-pressed={!view3D} onClick={() => setView3D(false)}>2D</button>
-              <button type="button" className={view3D ? "active" : ""} aria-label="3D district" aria-pressed={view3D} onClick={() => setView3D(true)}>3D</button>
+              <button type="button" className={view3D ? "active" : ""} aria-label={view3DReady ? "3D district" : "3D district is preparing"} aria-pressed={view3D} disabled={!view3DReady && !view3D} onClick={() => setView3D(true)}>3D</button>
             </div>
           </div>
         </header>
-        <div className="regional-map" ref={mapRef} aria-label="Interactive OpenStreetMap regional earthquake impact map with 3D buildings" />
-        <div className="regional-map-preloader" ref={preloadMapRef} aria-hidden="true" />
-        {!mapReady && !mapError && <div className="map-loading" role="status"><i /><span>Loading OpenStreetMap 3D data…</span></div>}
+        <div className="regional-map-stack">
+          <div className="regional-map" ref={mapRef} aria-label="Interactive 2D OpenStreetMap regional earthquake impact map" aria-hidden={view3D} />
+          <div className={`regional-map-preloader${view3D ? " active" : ""}`} ref={preloadMapRef} aria-label="Interactive 3D OpenStreetMap regional earthquake impact map" aria-hidden={!view3D} />
+        </div>
+        {!mapReady && !mapError && <div className="map-loading" role="status"><i /><span>Loading 2D map…</span></div>}
         {mapError && <p className="map-error">{mapError}</p>}
         <div className="map-legend"><span><i className="zone-high" /> Highest modeled motion</span><span><i className="zone-mid" /> Moderate modeled motion</span><span><i className="zone-low" /> Lower modeled motion</span><b>{view3D ? "3D OSM buildings shown at district scale" : "2D area overview · 3D prepared in background"}</b></div>
       </div>

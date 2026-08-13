@@ -29,7 +29,7 @@ Check the following before going live:
 - Every structure type renders, including the occupied multi-story car park.
 - Zoom, playback, restart, and report download work.
 - The Help Center, walkthrough spotlights, and LinkedIn link work.
-- The regional map switches between its area overview and keyless 3D OpenStreetMap building view.
+- The regional map opens with a fast raster 2D overview while its keyless 3D OpenStreetMap building view prepares in the background.
 - The layout remains usable on a phone and desktop.
 - The engineering and liability disclaimer appears in the interface and downloaded report.
 
