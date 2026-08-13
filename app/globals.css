@@ -14,10 +14,11 @@
 
 * { box-sizing: border-box; }
 
-html, body { margin: 0; min-height: 100%; background: #e8ece9; color: var(--ink); }
+html, body { margin: 0; min-height: 100%; overflow-x: clip; background: #e8ece9; color: var(--ink); }
 body { font-family: Arial, Helvetica, sans-serif; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 .app-shell { min-height: 100vh; background: #e8ece9; }
 .intro-screen { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden; background: #0d1715; opacity: 1; visibility: visible; transition: opacity .65s ease, visibility .65s ease; }
@@ -30,10 +31,12 @@ button { cursor: pointer; }
 @keyframes intro-load { from { width: 0; } to { width: 100%; } }
 @keyframes intro-zoom { from { transform: scale(1.025); } to { transform: scale(1); } }
 .topbar {
+  position: relative;
   height: 66px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   padding: 0 22px;
   color: #eef5f1;
   background: #111a18;
@@ -51,11 +54,15 @@ button { cursor: pointer; }
 .brand div { display: flex; flex-direction: column; gap: 1px; }
 .brand strong { letter-spacing: .16em; font-size: 14px; line-height: 1; }
 .brand small { letter-spacing: .17em; font-size: 8px; color: #94a29d; }
-.topbar-status { display: flex; align-items: center; gap: 9px; font-size: 9px; font-weight: 700; letter-spacing: .16em; color: #93a19c; }
-.mode-nav { align-self: stretch; display: flex; align-items: center; gap: 4px; }
-.mode-nav button { height: 34px; padding: 0 14px; border: 1px solid transparent; border-radius: 2px; color: #83918c; background: transparent; font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.topbar-status { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; font-size: 10px; font-weight: 700; letter-spacing: .14em; color: #93a19c; }
+.mode-nav { position: absolute; inset-block: 0; left: 50%; display: flex; align-items: center; gap: 6px; transform: translateX(-50%); }
+.mode-nav button { height: 36px; padding: 0 16px; border: 1px solid transparent; border-radius: 2px; color: #83918c; background: transparent; font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .mode-nav button:hover, .mode-nav button:focus-visible { color: #e8efeb; border-color: #44514d; outline: none; }
 .mode-nav button.active { color: #fff; border-color: #5a6662; background: #26322f; box-shadow: inset 0 -2px var(--signal); }
+.language-switcher { position: relative; display: flex; flex: 0 0 auto; align-items: center; min-width: 148px; height: 36px; margin-left: auto; margin-right: 10px; border: 1px solid #3d4a46; border-radius: 4px; color: #dce6e1; background: #1b2723; }
+.language-switcher:focus-within { border-color: var(--signal); box-shadow: 0 0 0 2px rgba(230,102,63,.14); }
+.language-switcher select { width: 100%; height: 100%; padding: 0 30px 0 12px; border: 0; color: inherit; background: transparent; outline: none; font-size: 11px; font-weight: 800; letter-spacing: .02em; cursor: pointer; appearance: auto; }
+.language-switcher option { color: #1d2a26; background: #fff; font-size: 13px; }
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #61d390; box-shadow: 0 0 0 4px rgba(97,211,144,.09); }
 .icon-button { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #4a5753; color: #a8b3af; background: transparent; margin-left: 7px; }
 .icon-button:hover, .icon-button:focus-visible { color: #fff; border-color: var(--signal); outline: none; }
@@ -381,12 +388,15 @@ button { cursor: pointer; }
 }
 
 @media (max-width: 760px) {
-  .topbar { height: 58px; padding: 0 14px; }
+  .topbar { height: 104px; padding: 0 12px 46px; }
   .brand small { display: none; }
   .topbar { gap: 8px; }
-  .mode-nav { margin-left: auto; }
-  .mode-nav button { padding: 0 9px; font-size: 7px; }
+  .mode-nav { inset: auto 0 0; width: 100%; height: 46px; justify-content: center; border-top: 1px solid #2e3a36; transform: none; }
+  .mode-nav button { min-width: 122px; padding: 0 10px; font-size: 9px; }
   .topbar-status { font-size: 0; gap: 2px; }
+  .language-switcher { min-width: 112px; width: 112px; height: 36px; margin-left: auto; margin-right: 4px; }
+  .language-switcher select { padding: 0 28px 0 10px; color: #eef5f1; font-size: 11px; }
+  .language-switcher option { font-size: 16px; }
   .live-dot { display: none; }
   .workspace { display: flex; flex-direction: column; }
   .viewport-panel { order: 1; grid-template-rows: 46px 60vh 54px; }
@@ -418,7 +428,16 @@ button { cursor: pointer; }
   .coordinate-grid .regional-field:last-child .parameter-tooltip-bubble { right: 0; left: auto; }
   .map-legend { min-height: 48px; flex-wrap: wrap; gap: 8px 14px; padding: 8px 12px; }
   .map-provider { display: none; }
+  .select-control select, .regional-field select { min-height: 44px; font-size: 14px; line-height: 1.3; }
 }
+
+html[dir="rtl"] body { font-family: Arial, Tahoma, sans-serif; }
+html[dir="rtl"] .topbar, html[dir="rtl"] .panel-title-row, html[dir="rtl"] .regional-title-row { direction: rtl; }
+html[dir="rtl"] .language-switcher { margin-right: auto; margin-left: 10px; }
+html[dir="rtl"] .language-switcher select { padding: 0 12px 0 30px; }
+html[dir="rtl"] .regional-controls, html[dir="rtl"] .regional-results, html[dir="rtl"] .control-panel, html[dir="rtl"] .results-panel, html[dir="rtl"] .help-center, html[dir="rtl"] .tour-card { direction: rtl; text-align: right; }
+html[dir="rtl"] .regional-note, html[dir="rtl"] .regional-disclaimer, html[dir="rtl"] .scope-note { border-right: 2px solid var(--signal); border-left: 0; }
+html[dir="rtl"] .distance-profile strong { text-align: left; }
 
 @media (max-width: 470px) {
   .controls-stack { grid-template-columns: 1fr; }
@@ -433,8 +452,7 @@ button { cursor: pointer; }
   .walkthrough-start { min-height: 430px; padding: 0 5px 35px; }
   .tooltip-bubble { display: none; }
   .brand strong { font-size: 12px; }
-  .mode-nav button { width: 31px; overflow: hidden; padding: 0; color: transparent; }
-  .mode-nav button::first-letter { color: #dce5e1; }
+  .mode-nav button { min-width: 126px; width: auto; overflow: visible; padding: 0 8px; color: #83918c; }
   .coordinate-grid { grid-template-columns: 1fr; }
 }
 

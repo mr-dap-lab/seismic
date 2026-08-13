@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Map, NavigationControl, ScaleControl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
 import type { Feature, Point, Polygon } from "geojson";
 import { createRegionalPdf } from "../lib/pdf-report.mjs";
+import { translateText, type Language } from "../lib/i18n";
 import { ParameterLabel } from "./ParameterTooltip";
 
 type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
@@ -169,7 +170,8 @@ async function captureImpactMap(map: Map, overlay: SVGSVGElement | null) {
   }
 }
 
-export default function RegionalSimulator() {
+export default function RegionalSimulator({ language }: { language: Language }) {
+  const t = (value: string) => translateText(value, language);
   const mapRef = useRef<HTMLDivElement>(null);
   const impactOverlayRef = useRef<SVGSVGElement>(null);
   const mapInstanceRef = useRef<Map | null>(null);
@@ -381,7 +383,7 @@ export default function RegionalSimulator() {
         moderateRadius: radii.mid,
         lowRadius: radii.low,
         mapImage,
-      });
+      }, { language, translate: t });
     } finally {
       setReportBusy(false);
     }
@@ -405,7 +407,7 @@ export default function RegionalSimulator() {
         </button>
 
         <form className="regional-search" onSubmit={searchCity}>
-          <ParameterLabel label="Find a city or place" description="Search OpenStreetMap by city or place name, then select a result to move the epicenter and impact rings." />
+          <ParameterLabel label={t("Find a city or place")} description={t("Search OpenStreetMap by city or place name, then select a result to move the epicenter and impact rings.")} />
           <p>Jump to a location and center the regional scenario.</p>
           <div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Bogotá, Colombia" aria-label="City or place" autoComplete="off" /><button type="submit" disabled={searchBusy}><span aria-hidden="true">⌕</span>{searchBusy ? "Searching…" : "Search"}</button></div>
           {searchError && <p className="regional-search-error" role="alert">{searchError}</p>}
@@ -413,14 +415,14 @@ export default function RegionalSimulator() {
           <small>Location data © OpenStreetMap contributors</small>
         </form>
 
-        <label className="regional-range"><span><ParameterLabel label="Magnitude" description="The earthquake's logarithmic energy measure used by the regional attenuation model." /><strong>{magnitude.toFixed(1)}</strong></span><input type="range" min="4" max="9.5" step="0.1" value={magnitude} onChange={(event) => setMagnitude(Number(event.target.value))} /></label>
-        <label className="regional-range"><span><ParameterLabel label="Focal depth" description="Vertical distance to the earthquake focus. Deeper events generally produce weaker surface motion nearby." /><strong>{depth} km</strong></span><input type="range" min="2" max="80" step="1" value={depth} onChange={(event) => setDepth(Number(event.target.value))} /></label>
-        <label className="regional-range"><span><ParameterLabel label="Analysis radius" description="Maximum regional distance available to the impact-ring model." /><strong>{radius} km</strong></span><input type="range" min="5" max="150" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /></label>
-        <label className="regional-field"><ParameterLabel label="Representative site class" description="Assumed soil or rock class used to amplify or reduce calculated ground motion." /><select value={siteClass} onChange={(event) => setSiteClass(event.target.value as SiteClass)}>{(Object.keys(SITE_FACTORS) as SiteClass[]).map((site) => <option value={site} key={site}>Class {site} — {SITE_CLASS_NAMES[site]}</option>)}</select></label>
+        <label className="regional-range"><span><ParameterLabel label={t("Magnitude")} description={t("The earthquake's logarithmic energy measure used by the regional attenuation model.")} /><strong>{magnitude.toFixed(1)}</strong></span><input type="range" min="4" max="9.5" step="0.1" value={magnitude} onChange={(event) => setMagnitude(Number(event.target.value))} /></label>
+        <label className="regional-range"><span><ParameterLabel label={t("Focal depth")} description={t("Vertical distance to the earthquake focus. Deeper events generally produce weaker surface motion nearby.")} /><strong>{depth} km</strong></span><input type="range" min="2" max="80" step="1" value={depth} onChange={(event) => setDepth(Number(event.target.value))} /></label>
+        <label className="regional-range"><span><ParameterLabel label={t("Analysis radius")} description={t("Maximum regional distance available to the impact-ring model.")} /><strong>{radius} km</strong></span><input type="range" min="5" max="150" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /></label>
+        <label className="regional-field"><ParameterLabel label={t("Representative site class")} description={t("Assumed soil or rock class used to amplify or reduce calculated ground motion.")} /><select value={siteClass} onChange={(event) => setSiteClass(event.target.value as SiteClass)}>{(Object.keys(SITE_FACTORS) as SiteClass[]).map((site) => <option value={site} key={site}>{t("Class")} {site} — {t(SITE_CLASS_NAMES[site])}</option>)}</select></label>
 
         <div className="coordinate-grid">
-          <label className="regional-field"><ParameterLabel label="Latitude" description="The north–south coordinate of the modeled epicenter in decimal degrees." /><input type="number" step="0.0001" value={center.lat.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lat: Number(event.target.value) }))} /></label>
-          <label className="regional-field"><ParameterLabel label="Longitude" description="The east–west coordinate of the modeled epicenter in decimal degrees." /><input type="number" step="0.0001" value={center.lng.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lng: Number(event.target.value) }))} /></label>
+          <label className="regional-field"><ParameterLabel label={t("Latitude")} description={t("The north–south coordinate of the modeled epicenter in decimal degrees.")} /><input type="number" step="0.0001" value={center.lat.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lat: Number(event.target.value) }))} /></label>
+          <label className="regional-field"><ParameterLabel label={t("Longitude")} description={t("The east–west coordinate of the modeled epicenter in decimal degrees.")} /><input type="number" step="0.0001" value={center.lng.toFixed(4)} onChange={(event) => setCenter((value) => ({ ...value, lng: Number(event.target.value) }))} /></label>
         </div>
 
         <p className="regional-note">Location access is used only to choose the initial area and is not stored. Activate <strong>Set epicenter</strong>, then click once on the map.</p>
@@ -450,7 +452,7 @@ export default function RegionalSimulator() {
         <div className="regional-metrics"><div><span>Epicenter PGA</span><strong>{centerMotion.pga.toFixed(3)} g</strong></div><div><span>Outer-edge PGA</span><strong>{edgeMotion.pga.toFixed(3)} g</strong></div><div><span>Modeled area</span><strong>{Math.round(Math.PI * radii.low ** 2).toLocaleString()} km²</strong></div><div><span>Site amplification</span><strong>× {SITE_FACTORS[siteClass].toFixed(2)}</strong></div></div>
         <h3>Distance profile</h3>
         <div className="distance-profile">{samples.map((sample) => <div key={sample.distance}><span>{Math.round(sample.distance)} km</span><i><b style={{ width: `${sample.pga / Math.max(centerMotion.pga, 0.01) * 100}%` }} /></i><strong>{sample.pga.toFixed(3)} g</strong></div>)}</div>
-        <section className="report-section"><button className="report-button" type="button" onClick={downloadRegionalReport} disabled={reportBusy || !mapReady}><span>⇩</span>{reportBusy ? "Creating PDF…" : "Download regional PDF"}</button><p>Includes the current map, impact rings, inputs, calculated results, OpenStreetMap attribution, and professional-use disclaimer.</p></section>
+        <section className="report-section"><button className="report-button has-tooltip tooltip-top" type="button" onClick={downloadRegionalReport} disabled={reportBusy || !mapReady}><span>⇩</span>{t(reportBusy ? "Creating PDF…" : "Download regional PDF")}<span className="tooltip-bubble" aria-hidden="true">{t("Export the regional map, impact rings, inputs, and results as PDF")}</span></button><p>Includes the current map, impact rings, inputs, calculated results, OpenStreetMap attribution, and professional-use disclaimer.</p></section>
         <div className="regional-disclaimer"><strong>Screening model only</strong><p>Results use simplified attenuation and uniform site assumptions. They are not a hazard map, emergency forecast, or substitute for official seismic, geotechnical, or engineering analysis.</p></div>
       </aside>
     </section>

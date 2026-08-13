@@ -6,6 +6,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ParameterLabel } from "./components/ParameterTooltip";
 import RegionalSimulator from "./components/RegionalSimulator";
 import { createSeismicPdf } from "./lib/pdf-report.mjs";
+import { LANGUAGES, LocalizationRuntime, translateText, type Language } from "./lib/i18n";
 
 type StructureType = "concrete" | "steel" | "masonry" | "timber";
 type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
@@ -701,6 +702,7 @@ function EarthquakeScene({
 }
 
 export default function Home() {
+  const [language, setLanguage] = useState<Language>("en");
   const [config, setConfig] = useState<SimulationConfig>(DEFAULT_CONFIG);
   const [introVisible, setIntroVisible] = useState(true);
   const [introLeaving, setIntroLeaving] = useState(false);
@@ -717,6 +719,18 @@ export default function Home() {
   const [reportBusy, setReportBusy] = useState(false);
   const metrics = useMemo(() => calculateMetrics(config), [config]);
   const kindProfile = STRUCTURE_KINDS[config.structureKind];
+  const t = useCallback((value: string) => translateText(value, language), [language]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("seismic-language") as Language | null;
+    if (saved && LANGUAGES.some(({ code }) => code === saved)) window.setTimeout(() => setLanguage(saved), 0);
+  }, []);
+
+  const changeLanguage = (nextLanguage: Language) => {
+    if (nextLanguage === language) return;
+    setLanguage(nextLanguage);
+    window.localStorage.setItem("seismic-language", nextLanguage);
+  };
 
   useEffect(() => {
     const leavingTimer = window.setTimeout(() => setIntroLeaving(true), 1800);
@@ -790,8 +804,8 @@ export default function Home() {
     try {
       await createSeismicPdf({
         filename: `seismic-${config.structureKind}-report.pdf`,
-        structure: kindProfile.label,
-        system: STRUCTURES[config.structure].label,
+        structure: t(kindProfile.label),
+        system: t(STRUCTURES[config.structure].label),
         stories: config.floors,
         storyHeight: config.floorHeight,
         totalHeight: config.floors * config.floorHeight,
@@ -803,8 +817,8 @@ export default function Home() {
         frequency: config.frequency,
         mmiRoman: metrics.mmiRoman,
         mmi: metrics.mmi,
-        mmiTitle: metrics.mmiTitle,
-        mmiLegend: metrics.mmiLegend,
+        mmiTitle: t(metrics.mmiTitle),
+        mmiLegend: t(metrics.mmiLegend),
         pga: metrics.pga,
         spectralAcceleration: metrics.spectralAcceleration,
         period: metrics.period,
@@ -812,12 +826,12 @@ export default function Home() {
         driftLimit: config.driftLimit,
         baseShear: metrics.baseShear,
         damageScore: metrics.damageScore,
-        damageLabel: metrics.damageLabel,
+        damageLabel: t(metrics.damageLabel),
         responseFactor: config.responseFactor,
         importanceFactor: config.importanceFactor,
         damping: config.damping,
         reliability: config.reliability,
-      });
+      }, { language, translate: t });
     } finally {
       setReportBusy(false);
     }
@@ -830,7 +844,8 @@ export default function Home() {
   };
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" key={language}>
+      <LocalizationRuntime language={language} />
       {introVisible && (
         <div className={`intro-screen${introLeaving ? " intro-leaving" : ""}`} role="status" aria-label="Loading SEISMIC Structural Response Lab">
           {/* The launch artwork must render immediately and is already preloaded by the server. */}
@@ -848,6 +863,12 @@ export default function Home() {
           <button type="button" className={appMode === "structure" ? "active" : ""} onClick={() => setAppMode("structure")}>Structure lab</button>
           <button type="button" className={appMode === "regional" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("regional"); }}>Regional map</button>
         </nav>
+        <label className="language-switcher">
+          <span className="sr-only">Language</span>
+          <select value={language} onChange={(event) => changeLanguage(event.target.value as Language)} aria-label="Language">
+            {LANGUAGES.map((item) => <option key={item.code} value={item.code}>{item.nativeName}</option>)}
+          </select>
+        </label>
         <div className="topbar-status">
           <span className="live-dot" /> LIVE MODEL
           <button className="icon-button has-tooltip" type="button" onClick={() => setInfoOpen(true)} aria-label="Open help center">?<span className="tooltip-bubble" aria-hidden="true">Help, walkthrough &amp; contact</span></button>
@@ -934,15 +955,15 @@ export default function Home() {
 
           {activeTab === "motion" ? (
             <div className="controls-stack">
-              <RangeControl label="Magnitude" symbol="M" description="A logarithmic measure of the earthquake's released energy. Each whole-number increase represents substantially stronger shaking." value={config.magnitude} min={3} max={9.5} step={0.1} onChange={(value) => update("magnitude", value)} />
-              <RangeControl label="Perceived intensity" symbol="I" description="The expected severity of shaking and observed effects at the structure, expressed on the 1–12 Modified Mercalli scale." value={config.intensity} min={1} max={12} step={1} onChange={(value) => update("intensity", value)} />
-              <RangeControl label="Peak amplitude" symbol="A" description="The maximum modeled ground acceleration, expressed as a fraction of gravity (g). It directly influences inertial force." value={config.amplitude} min={0.02} max={1.5} step={0.01} unit=" g" onChange={(value) => update("amplitude", value)} />
-              <RangeControl label="Dominant frequency" symbol="f" description="The principal repetition rate of ground motion. Response can increase when it approaches the structure's natural frequency." value={config.frequency} min={0.2} max={5} step={0.1} unit=" Hz" onChange={(value) => update("frequency", value)} />
+              <RangeControl label={t("Magnitude")} symbol="M" description={t("A logarithmic measure of the earthquake's released energy. Each whole-number increase represents substantially stronger shaking.")} value={config.magnitude} min={3} max={9.5} step={0.1} onChange={(value) => update("magnitude", value)} />
+              <RangeControl label={t("Perceived intensity")} symbol="I" description={t("The expected severity of shaking and observed effects at the structure, expressed on the 1–12 Modified Mercalli scale.")} value={config.intensity} min={1} max={12} step={1} onChange={(value) => update("intensity", value)} />
+              <RangeControl label={t("Peak amplitude")} symbol="A" description={t("The maximum modeled ground acceleration, expressed as a fraction of gravity (g). It directly influences inertial force.")} value={config.amplitude} min={0.02} max={1.5} step={0.01} unit=" g" onChange={(value) => update("amplitude", value)} />
+              <RangeControl label={t("Dominant frequency")} symbol="f" description={t("The principal repetition rate of ground motion. Response can increase when it approaches the structure's natural frequency.")} value={config.frequency} min={0.2} max={5} step={0.1} unit=" Hz" onChange={(value) => update("frequency", value)} />
               <SelectControl
-                label="Site class"
-                description="A–F soil and rock classification used to estimate how local ground conditions amplify shaking. Class A is hard rock; softer classes generally amplify more."
+                label={t("Site class")}
+                description={t("A–F soil and rock classification used to estimate how local ground conditions amplify shaking. Class A is hard rock; softer classes generally amplify more.")}
                 value={config.siteClass}
-                options={(Object.keys(SITE_CLASSES) as SiteClass[]).map((site) => ({ value: site, label: `${site} — ${SITE_CLASSES[site].label}` }))}
+                options={(Object.keys(SITE_CLASSES) as SiteClass[]).map((site) => ({ value: site, label: `${site} — ${t(SITE_CLASSES[site].label)}` }))}
                 onChange={(value) => update("siteClass", value as SiteClass)}
               />
               <div className="site-note"><span>Site amplification · Class {config.siteClass}</span><strong>× {SITE_CLASSES[config.siteClass].amplification.toFixed(2)}</strong></div>
@@ -950,29 +971,29 @@ export default function Home() {
           ) : (
             <div className="controls-stack">
               <SelectControl
-                label="Structure type"
-                description="The asset geometry being modeled. This selection changes allowed floor counts, dimensions, mass, stiffness assumptions, and the 3D representation."
+                label={t("Structure type")}
+                description={t("The asset geometry being modeled. This selection changes allowed floor counts, dimensions, mass, stiffness assumptions, and the 3D representation.")}
                 value={config.structureKind}
-                options={(Object.keys(STRUCTURE_KINDS) as StructureKind[]).map((kind) => ({ value: kind, label: STRUCTURE_KINDS[kind].label }))}
+                options={(Object.keys(STRUCTURE_KINDS) as StructureKind[]).map((kind) => ({ value: kind, label: t(STRUCTURE_KINDS[kind].label) }))}
                 onChange={(value) => changeStructureKind(value as StructureKind)}
               />
               <SelectControl
-                label="Structural system"
-                description="The primary lateral-force-resisting material and framing system used to estimate stiffness, period, and energy-dissipation behavior."
+                label={t("Structural system")}
+                description={t("The primary lateral-force-resisting material and framing system used to estimate stiffness, period, and energy-dissipation behavior.")}
                 value={config.structure}
-                options={(Object.keys(STRUCTURES) as StructureType[]).map((type) => ({ value: type, label: STRUCTURES[type].label }))}
+                options={(Object.keys(STRUCTURES) as StructureType[]).map((type) => ({ value: type, label: t(STRUCTURES[type].label) }))}
                 onChange={(value) => update("structure", value as StructureType)}
               />
-              <RangeControl label="Number of floors" description="The number of occupied or modeled levels. It controls total height, approximate mass distribution, period, and the rendered model." value={config.floors} min={kindProfile.minFloors} max={kindProfile.maxFloors} step={1} onChange={changeFloors} />
-              <RangeControl label="Floor height" description="The vertical distance between consecutive floor levels. Together with floor count, it determines total structural height." value={config.floorHeight} min={2.6} max={4.5} step={0.1} unit=" m" onChange={(value) => update("floorHeight", value)} />
+              <RangeControl label={t("Number of floors")} description={t("The number of occupied or modeled levels. It controls total height, approximate mass distribution, period, and the rendered model.")} value={config.floors} min={kindProfile.minFloors} max={kindProfile.maxFloors} step={1} onChange={changeFloors} />
+              <RangeControl label={t("Floor height")} description={t("The vertical distance between consecutive floor levels. Together with floor count, it determines total structural height.")} value={config.floorHeight} min={2.6} max={4.5} step={0.1} unit=" m" onChange={(value) => update("floorHeight", value)} />
               {config.structureKind === "carPark" && (
-                <RangeControl label="Vehicle occupancy" description="The estimated percentage of parking spaces occupied. More vehicles increase the modeled seismic mass and structural demand." value={config.vehicleOccupancy} min={0} max={100} step={5} unit="%" onChange={(value) => update("vehicleOccupancy", value)} />
+                <RangeControl label={t("Vehicle occupancy")} description={t("The estimated percentage of parking spaces occupied. More vehicles increase the modeled seismic mass and structural demand.")} value={config.vehicleOccupancy} min={0} max={100} step={5} unit="%" onChange={(value) => update("vehicleOccupancy", value)} />
               )}
-              <RangeControl label="Damping ratio" symbol="ζ" description="The percentage of critical damping used to represent how quickly the structure dissipates vibration energy." value={config.damping} min={2} max={15} step={0.5} unit="%" onChange={(value) => update("damping", value)} />
-              <RangeControl label="Drift limit" symbol="Δ" description="The maximum acceptable relative horizontal displacement between adjacent floors, expressed as a percentage of story height." value={config.driftLimit} min={0.5} max={3} step={0.1} unit="%" onChange={(value) => update("driftLimit", value)} />
-              <RangeControl label="Response modification" symbol="R" description="A design coefficient representing ductility, overstrength, and energy dissipation. Higher values reduce the equivalent elastic design force." value={config.responseFactor} min={1} max={8} step={0.5} onChange={(value) => update("responseFactor", value)} />
-              <RangeControl label="Importance factor" description="A multiplier that increases design demand for structures whose continued operation or occupancy is especially important." value={config.importanceFactor} min={1} max={1.5} step={0.05} onChange={(value) => update("importanceFactor", value)} />
-              <RangeControl label="Material reliability" description="A simplified confidence factor for material condition and construction quality. Lower reliability increases estimated response and damage." value={config.reliability} min={0.65} max={1.35} step={0.05} onChange={(value) => update("reliability", value)} />
+              <RangeControl label={t("Damping ratio")} symbol="ζ" description={t("The percentage of critical damping used to represent how quickly the structure dissipates vibration energy.")} value={config.damping} min={2} max={15} step={0.5} unit="%" onChange={(value) => update("damping", value)} />
+              <RangeControl label={t("Drift limit")} symbol="Δ" description={t("The maximum acceptable relative horizontal displacement between adjacent floors, expressed as a percentage of story height.")} value={config.driftLimit} min={0.5} max={3} step={0.1} unit="%" onChange={(value) => update("driftLimit", value)} />
+              <RangeControl label={t("Response modification")} symbol="R" description={t("A design coefficient representing ductility, overstrength, and energy dissipation. Higher values reduce the equivalent elastic design force.")} value={config.responseFactor} min={1} max={8} step={0.5} onChange={(value) => update("responseFactor", value)} />
+              <RangeControl label={t("Importance factor")} description={t("A multiplier that increases design demand for structures whose continued operation or occupancy is especially important.")} value={config.importanceFactor} min={1} max={1.5} step={0.05} onChange={(value) => update("importanceFactor", value)} />
+              <RangeControl label={t("Material reliability")} description={t("A simplified confidence factor for material condition and construction quality. Lower reliability increases estimated response and damage.")} value={config.reliability} min={0.65} max={1.35} step={0.05} onChange={(value) => update("reliability", value)} />
             </div>
           )}
         </aside>
@@ -986,9 +1007,9 @@ export default function Home() {
             <EarthquakeScene config={config} metrics={metrics} running={running} speed={speed} resetSignal={resetSignal} viewCommand={viewCommand} onTime={handleTime} />
             <div className="scene-vignette" />
             <div className="zoom-tools" aria-label="Viewport zoom controls">
-              <button className="has-tooltip tooltip-right" type="button" onClick={() => sendViewCommand("in")} aria-label="Zoom in">+<span className="tooltip-bubble" aria-hidden="true">Zoom in</span></button>
-              <button className="has-tooltip tooltip-right" type="button" onClick={() => sendViewCommand("out")} aria-label="Zoom out">−<span className="tooltip-bubble" aria-hidden="true">Zoom out</span></button>
-              <button className="has-tooltip tooltip-right" type="button" onClick={() => sendViewCommand("fit")} aria-label="Fit structure to view">⌗<span className="tooltip-bubble" aria-hidden="true">Fit model to view</span></button>
+              <button className="has-tooltip tooltip-right" type="button" onClick={() => sendViewCommand("in")} aria-label={t("Zoom in")}>+<span className="tooltip-bubble" aria-hidden="true">{t("Zoom in")}</span></button>
+              <button className="has-tooltip tooltip-right" type="button" onClick={() => sendViewCommand("out")} aria-label={t("Zoom out")}>−<span className="tooltip-bubble" aria-hidden="true">{t("Zoom out")}</span></button>
+              <button className="has-tooltip tooltip-right" type="button" onClick={() => sendViewCommand("fit")} aria-label={t("Fit structure to view")}>⌗<span className="tooltip-bubble" aria-hidden="true">{t("Fit model to view")}</span></button>
             </div>
             <div className="height-tag"><span>H</span>{formatNumber(config.floors * config.floorHeight, 1)} m</div>
             <div className="motion-indicator">
@@ -1045,13 +1066,13 @@ export default function Home() {
           </section>
 
           <section className={`report-section${tourStep >= 0 && TOUR_STEPS[tourStep].target === "report" ? " tour-focus" : ""}`}>
-            <button className="report-button has-tooltip tooltip-top" type="button" onClick={downloadReport} disabled={reportBusy}><span>↓</span> {reportBusy ? "Generating PDF..." : "Download PDF report"}<span className="tooltip-bubble" aria-hidden="true">Export current inputs and results as PDF</span></button>
+            <button className="report-button has-tooltip tooltip-top" type="button" onClick={downloadReport} disabled={reportBusy}><span>↓</span> {t(reportBusy ? "Generating PDF..." : "Download PDF report")}<span className="tooltip-bubble" aria-hidden="true">{t("Export current inputs and results as PDF")}</span></button>
             <p><strong>Professional-use disclaimer:</strong> This report does not replace the expertise or judgment of a licensed engineer. No liability is accepted for decisions or outcomes based on generated results.</p>
           </section>
 
           <p className="model-note">Indicative educational model · Simplified response spectrum · Values update continuously</p>
         </aside>
-      </section> : <RegionalSimulator />}
+      </section> : <RegionalSimulator language={language} />}
 
       {tourStep >= 0 && (
         <>

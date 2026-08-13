@@ -17,10 +17,11 @@ test("builds the production-ready SEISMIC application", async () => {
 });
 
 test("wires PDF, geolocated regional mapping, parameter help, and Vercel configuration", async () => {
-  const [page, regional, tooltip, pdf, css, packageJson, vercel] = await Promise.all([
+  const [page, regional, tooltip, i18n, pdf, css, packageJson, vercel] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/RegionalSimulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ParameterTooltip.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/i18n.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/pdf-report.mjs", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -30,11 +31,27 @@ test("wires PDF, geolocated regional mapping, parameter help, and Vercel configu
   assert.match(page, /createSeismicPdf/);
   assert.match(page, /Regional map/);
   assert.match(page, /SITE_CLASSES\[config\.siteClass\]\.amplification/);
+  assert.match(page, /LocalizationRuntime/);
+  assert.match(page, /className="language-switcher"/);
+  assert.match(page, /setLanguage\(nextLanguage\)/);
+  assert.doesNotMatch(page, /window\.location\.reload/);
+  assert.match(page, /RegionalSimulator language=\{language\}/);
+  assert.match(i18n, /"en" \| "es" \| "fr" \| "yue" \| "hi" \| "ar"/);
+  assert.match(i18n, /Español/);
+  assert.match(i18n, /Français/);
+  assert.match(i18n, /廣東話/);
+  assert.match(i18n, /हिन्दी/);
+  assert.match(i18n, /العربية/);
+  assert.match(i18n, /language === "ar" \? "rtl" : "ltr"/);
   assert.match(pdf, /jspdf-autotable/);
   assert.match(pdf, /IMPORTANT PROFESSIONAL-USE DISCLAIMER/);
   assert.match(pdf, /createRegionalPdf/);
+  assert.match(pdf, /enableUnicodeText/);
+  assert.match(pdf, /t\("STRUCTURAL RESPONSE REPORT"\)/);
+  assert.match(pdf, /LANGUAGE_LOCALES/);
   assert.match(pdf, /Map data © OpenStreetMap contributors/);
   assert.match(regional, /maplibre-gl/);
+  assert.match(regional, /translateText, type Language/);
   assert.match(regional, /const MAP_STYLE: StyleSpecification/);
   assert.match(regional, /tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png/);
   assert.match(regional, /"raster-fade-duration": 0/);
@@ -49,11 +66,11 @@ test("wires PDF, geolocated regional mapping, parameter help, and Vercel configu
   assert.match(regional, /userSelectedLocationRef/);
   assert.match(regional, /updateImpactLayers\(map, selectedCenter, radiiRef\.current\)/);
   assert.match(regional, /Set epicenter/);
-  assert.match(regional, /className="report-button"/);
+  assert.match(regional, /className="report-button has-tooltip tooltip-top"/);
   assert.ok(regional.indexOf("Set epicenter") < regional.indexOf("Find a city or place"));
   assert.ok(regional.indexOf("Find a city or place") < regional.indexOf("Latitude"));
   assert.ok(regional.indexOf("Representative site class") < regional.indexOf("Latitude"));
-  assert.match(regional, /Class \{site\} — \{SITE_CLASS_NAMES\[site\]\}/);
+  assert.match(regional, /\{t\("Class"\)\} \{site\} — \{t\(SITE_CLASS_NAMES\[site\]\)\}/);
   assert.match(regional, /resetRegional/);
   assert.match(regional, /fillOpacity="0\.18"/);
   assert.match(regional, /IMPACT_ZONES\.forEach/);
@@ -69,6 +86,11 @@ test("wires PDF, geolocated regional mapping, parameter help, and Vercel configu
   assert.match(css, /\.epicenter-tool/);
   assert.match(css, /\.impact-ring-high/);
   assert.match(css, /\.report-button/);
+  assert.match(css, /\.language-switcher/);
+  assert.match(css, /min-width: 148px/);
+  assert.match(css, /\.mode-nav \{ position: absolute/);
+  assert.match(css, /\.select-control select, \.regional-field select \{ min-height: 44px; font-size: 14px/);
+  assert.match(css, /html\[dir="rtl"\]/);
   assert.doesNotMatch(css, /\.regional-report/);
   assert.match(css, /\.regional-shell\s*\{/);
   assert.match(packageJson, /"jspdf"/);
