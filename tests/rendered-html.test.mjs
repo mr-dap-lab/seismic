@@ -186,6 +186,11 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(css, /\.linkedin-badge-shell \.LI-profile-badge\s*\{[^}]*justify-content:\s*center;[^}]*margin:\s*0 auto/s);
   assert.match(css, /\.kit-category-grid/);
   assert.match(css, /\.kit-progress-ring/);
+  assert.match(css, /\.kit-planning-bar > label\s*\{[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto/s);
+  assert.match(css, /\.kit-planning-bar > label > span\s*\{[^}]*align-self:\s*end/s);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.control-panel\s*\{[^}]*max-width:\s*100vw;[^}]*overflow-x:\s*clip/s);
+  assert.match(css, /\.tab-list \.tooltip-bubble\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /\.panel-title-row \.text-button\s*\{[^}]*max-width:\s*45%;[^}]*overflow-wrap:\s*anywhere/s);
   assert.match(css, /\.mode-nav button \{ flex: 1; min-width: 0/);
   assert.match(css, /\.select-control select, \.regional-field select \{ min-height: 44px; font-size: 0\.875rem/);
   assert.match(css, /html\[data-text-size="large"\]/);
