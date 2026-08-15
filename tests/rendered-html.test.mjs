@@ -10,6 +10,10 @@ test("builds the production-ready SEISMIC application", async () => {
   ]);
   assert.match(layout, /SEISMIC/);
   assert.match(layout, /<body suppressHydrationWarning>/);
+  assert.match(layout, /clarity\.ms\/tag/);
+  assert.match(layout, /y2tlzpkgbx/);
+  assert.match(layout, /platform\.linkedin\.com\/badges\/js\/profile\.js/);
+  assert.match(layout, /strategy="beforeInteractive"/);
   assert.match(page, /Interactive 3D/);
   assert.match(page, /Download PDF report/);
   assert.match(page, /Professional-use disclaimer/);
@@ -17,10 +21,11 @@ test("builds the production-ready SEISMIC application", async () => {
 });
 
 test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, and Vercel configuration", async () => {
-  const [page, regional, liveAlerts, tooltip, i18n, pdf, css, packageJson, vercel] = await Promise.all([
+  const [page, regional, liveAlerts, emergencyKit, tooltip, i18n, pdf, css, packageJson, vercel] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/RegionalSimulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/LiveAlerts.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/EmergencyKit.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ParameterTooltip.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/i18n.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/pdf-report.mjs", import.meta.url), "utf8"),
@@ -38,10 +43,28 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.doesNotMatch(page, /window\.location\.reload/);
   assert.match(page, /RegionalSimulator language=\{language\}/);
   assert.match(page, /LiveAlerts language=\{language\}/);
+  assert.match(page, /EmergencyKit language=\{language\}/);
+  assert.match(page, /className="skip-link"/);
+  assert.match(page, /Accessibility options/);
+  assert.match(page, /seismic-accessibility/);
+  assert.match(page, /aria-current=\{appMode === "alerts"/);
+  assert.match(page, /activeMode\?\.scrollIntoView\(\{ behavior: "auto", block: "nearest", inline: "center" \}\)/);
+  assert.match(page, /running=\{running && !reduceMotion\}/);
+  assert.match(page, /aria-live="polite" aria-atomic="true">Current structural response/);
+  assert.match(page, /LI-profile-badge/);
+  assert.match(page, /data-vanity="diego-avella"/);
+  assert.match(page, /data-size="large"/);
+  assert.match(page, /data-type="HORIZONTAL"/);
+  assert.doesNotMatch(page, /badge-base__link LI-simple-link/);
+  assert.match(page, /window\.LIRenderAll/);
+  assert.doesNotMatch(page, /className="linkedin-link"/);
+  assert.match(page, />Emergency kit<\/button>/);
   assert.match(page, /appMode === "alerts"/);
-  assert.match(page, /useState<"structure" \| "regional" \| "alerts">\("alerts"\)/);
+  assert.match(page, /useState<"structure" \| "regional" \| "alerts" \| "kit">\("alerts"\)/);
   assert.match(page, /Live alerts/);
   assert.ok(page.indexOf(">Live alerts</button>") < page.indexOf(">Regional map</button>"));
+  assert.ok(page.indexOf(">Regional map</button>") < page.indexOf(">Emergency kit</button>"));
+  assert.ok(page.indexOf(">Emergency kit</button>") < page.indexOf(">Structure lab</button>"));
   assert.ok(page.indexOf(">Regional map</button>") < page.indexOf(">Structure lab</button>"));
   assert.match(i18n, /"en" \| "es" \| "fr" \| "yue" \| "hi" \| "ar"/);
   assert.match(i18n, /Español/);
@@ -49,6 +72,8 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(i18n, /廣東話/);
   assert.match(i18n, /हिन्दी/);
   assert.match(i18n, /العربية/);
+  assert.match(i18n, /Emergency kit checklist/);
+  assert.match(i18n, /Kit de emergencia/);
   assert.match(i18n, /language === "ar" \? "rtl" : "ltr"/);
   assert.match(pdf, /jspdf-autotable/);
   assert.match(pdf, /IMPORTANT PROFESSIONAL-USE DISCLAIMER/);
@@ -84,6 +109,8 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(regional, /updateImpactLayers\(map, center, radii\)/);
   assert.match(regional, /projectImpactGeometry/);
   assert.match(regional, /regional-impact-overlay/);
+  assert.match(regional, /id="regional-map-description"/);
+  assert.match(regional, /aria-live="polite" aria-atomic="true">Regional scenario result/);
   assert.match(regional, /map\.triggerRepaint\(\)/);
   assert.match(liveAlerts, /earthquake\.usgs\.gov\/earthquakes\/feed\/v1\.0\/summary\/all_day\.geojson/);
   assert.match(liveAlerts, /earthquake\.usgs\.gov\/fdsnws\/event\/1\/query/);
@@ -106,8 +133,16 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(liveAlerts, /id: "live-earthquake-points"/);
   assert.match(liveAlerts, /new Marker/);
   assert.match(liveAlerts, /alerts-earthquake-marker/);
+  assert.match(liveAlerts, /markerButton\.style\.width = "44px"/);
+  assert.match(liveAlerts, /role="status" aria-live="polite" aria-atomic="true"/);
   assert.match(liveAlerts, /WorldEarthquakeMap events=\{filteredEvents\}/);
   assert.match(liveAlerts, /Worldwide earthquake map/);
+  assert.match(emergencyKit, /const STORAGE_KEY = "seismic-emergency-kit"/);
+  assert.match(emergencyKit, /Emergency kit checklist/);
+  assert.match(emergencyKit, /KIT_CATEGORIES/);
+  assert.match(emergencyKit, /householdSize \* planningDays \* 3\.8/);
+  assert.match(emergencyKit, /redcross\.org/);
+  assert.match(emergencyKit, /role="status" aria-live="polite"/);
   assert.match(tooltip, /role="tooltip"/);
   assert.match(tooltip, /aria-describedby/);
   assert.match(css, /\.parameter-tooltip-bubble/);
@@ -126,8 +161,20 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(css, /\.alerts-world-map\.maplibregl-map\s*\{[^}]*position:\s*absolute;[^}]*height:\s*100%/s);
   assert.match(css, /\.alerts-earthquake-marker/);
   assert.match(css, /\.alerts-map-selection/);
+  assert.match(css, /\.kit-checklist label\s*\{[^}]*font-size:\s*0\.75rem/s);
+  assert.match(css, /\.emergency-kit-shell/);
+  assert.match(emergencyKit, /className="kit-hero-band"/);
+  assert.match(emergencyKit, /className="kit-body"/);
+  assert.match(css, /\.kit-hero h1\s*\{[^}]*clamp\(32px, 3vw, 44px\)/s);
+  assert.match(css, /\.linkedin-badge-shell \.LI-profile-badge\s*\{[^}]*justify-content:\s*center;[^}]*margin:\s*0 auto/s);
+  assert.match(css, /\.kit-category-grid/);
+  assert.match(css, /\.kit-progress-ring/);
   assert.match(css, /\.mode-nav button \{ flex: 1; min-width: 0/);
-  assert.match(css, /\.select-control select, \.regional-field select \{ min-height: 44px; font-size: 14px/);
+  assert.match(css, /\.select-control select, \.regional-field select \{ min-height: 44px; font-size: 0\.875rem/);
+  assert.match(css, /html\[data-text-size="large"\]/);
+  assert.match(css, /\.a11y-high-contrast/);
+  assert.match(css, /\.a11y-reduce-motion/);
+  assert.match(css, /\.skip-link/);
   assert.match(css, /html\[dir="rtl"\]/);
   assert.doesNotMatch(css, /\.regional-report/);
   assert.match(css, /\.regional-shell\s*\{/);

@@ -193,20 +193,29 @@ function WorldEarthquakeMap({ events, selectedEvent, onSelect, t, locale }: {
       const markerColors = { low: "#8ba49a", moderate: "#e0b74e", high: "#e57845", critical: "#cf433b" } as const;
       const markerHalos = { low: "rgba(139,164,154,.22)", moderate: "rgba(224,183,78,.24)", high: "rgba(229,120,69,.25)", critical: "rgba(207,67,59,.27)" } as const;
       const markerButton = document.createElement("button");
+      const markerVisual = document.createElement("span");
+      const markerSize = Math.min(22, 8 + magnitude * 1.5);
       markerButton.type = "button";
       markerButton.className = `alerts-earthquake-marker tone-${tone}${event.id === selectedEvent?.id ? " is-selected" : ""}`;
-      markerButton.style.width = `${Math.min(22, 8 + magnitude * 1.5)}px`;
-      markerButton.style.height = markerButton.style.width;
+      markerButton.style.width = "44px";
+      markerButton.style.height = "44px";
       markerButton.style.padding = "0";
-      markerButton.style.border = event.id === selectedEvent?.id ? "2px solid #17211f" : "1.5px solid rgba(255,255,255,.96)";
-      markerButton.style.borderRadius = "50%";
-      markerButton.style.backgroundColor = markerColors[tone];
-      markerButton.style.boxShadow = `0 0 0 ${tone === "critical" ? 6 : tone === "high" ? 5 : 4}px ${markerHalos[tone]}, 0 2px 8px rgba(26,40,35,.38)`;
+      markerButton.style.border = "0";
+      markerButton.style.background = "transparent";
       markerButton.style.cursor = "pointer";
+      markerVisual.setAttribute("aria-hidden", "true");
+      markerVisual.style.display = "block";
+      markerVisual.style.width = `${markerSize}px`;
+      markerVisual.style.height = `${markerSize}px`;
+      markerVisual.style.border = event.id === selectedEvent?.id ? "2px solid #17211f" : "1.5px solid rgba(255,255,255,.96)";
+      markerVisual.style.borderRadius = "50%";
+      markerVisual.style.backgroundColor = markerColors[tone];
+      markerVisual.style.boxShadow = `0 0 0 ${tone === "critical" ? 6 : tone === "high" ? 5 : 4}px ${markerHalos[tone]}, 0 2px 8px rgba(26,40,35,.38)`;
       if (event.id === selectedEvent?.id) {
-        markerButton.style.outline = "2px solid #fff";
-        markerButton.style.outlineOffset = "2px";
+        markerVisual.style.outline = "2px solid #fff";
+        markerVisual.style.outlineOffset = "2px";
       }
+      markerButton.append(markerVisual);
       markerButton.title = `${t("Magnitude")} ${magnitude.toFixed(1)} · ${event.properties.place ?? t("Location unavailable")}`;
       markerButton.setAttribute("aria-label", markerButton.title);
       markerButton.addEventListener("click", (clickEvent) => {
@@ -472,7 +481,7 @@ export default function LiveAlerts({ language }: { language: Language }) {
           <div className="alerts-sync"><span>{t("Last synchronized")}</span><strong>{lastSynchronized ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(lastSynchronized) : t("Awaiting first update")}</strong></div>
         </header>
 
-        <div className="alerts-summary" aria-label={t("Earthquake feed summary")}>
+        <div className="alerts-summary" role="status" aria-live="polite" aria-atomic="true" aria-label={t("Earthquake feed summary")}>
           <div><span>{t("Matching events")}</span><strong>{filteredEvents.length}</strong></div>
           <div><span>{t("Largest event")}</span><strong>{largest ? `M ${largest.toFixed(1)}` : "—"}</strong></div>
           <div><span>{t("Tsunami flags")}</span><strong>{tsunamiCount}</strong></div>
@@ -484,8 +493,8 @@ export default function LiveAlerts({ language }: { language: Language }) {
         <div className="alerts-list-heading"><div><span>{t("Newest first")}</span><i />{t(monitoring ? "Monitoring active" : "Monitoring paused")}</div><small>{t(WINDOW_LABELS[feedWindow])} · M {minimumMagnitude.toFixed(1)}+</small></div>
 
         {error && <div className="alerts-state alerts-error" role="alert"><strong>{error}</strong><button type="button" onClick={() => void refresh()}>{t("Try again")}</button></div>}
-        {!error && loading && events.length === 0 && <div className="alerts-state"><span className="alerts-loader" /><strong>{t("Connecting to the USGS feed...")}</strong></div>}
-        {!error && !loading && filteredEvents.length === 0 && <div className="alerts-state"><strong>{t("No earthquakes match these filters.")}</strong><p>{t("Lower the minimum magnitude or select a wider time window.")}</p></div>}
+        {!error && loading && events.length === 0 && <div className="alerts-state" role="status" aria-live="polite"><span className="alerts-loader" aria-hidden="true" /><strong>{t("Connecting to the USGS feed...")}</strong></div>}
+        {!error && !loading && filteredEvents.length === 0 && <div className="alerts-state" role="status"><strong>{t("No earthquakes match these filters.")}</strong><p>{t("Lower the minimum magnitude or select a wider time window.")}</p></div>}
 
         {!error && filteredEvents.length > 0 && (
           <div className="alerts-event-list">

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ParameterLabel } from "./components/ParameterTooltip";
+import EmergencyKit from "./components/EmergencyKit";
 import LiveAlerts from "./components/LiveAlerts";
 import RegionalSimulator from "./components/RegionalSimulator";
 import { createSeismicPdf } from "./lib/pdf-report.mjs";
@@ -15,8 +16,13 @@ type StructureKind = "building" | "house" | "garage" | "shed" | "skyscraper" | "
 type ViewAction = "in" | "out" | "fit";
 type ViewCommand = { id: number; action: ViewAction };
 type HelpTab = "guide" | "walkthrough" | "contact";
+type AccessibilityPreference = "largeText" | "highContrast" | "reduceMotion";
 
-const LINKEDIN_URL = "https://www.linkedin.com/in/diego-avella/";
+declare global {
+  interface Window {
+    LIRenderAll?: () => void;
+  }
+}
 
 const TOUR_STEPS = [
   { target: "inputs", eyebrow: "Step 1 of 5", title: "Define the scenario", body: "Use Ground motion for the earthquake and soil inputs. Open Structure to choose the asset, framing system, floors, damping, and design factors." },
@@ -699,7 +705,7 @@ function EarthquakeScene({
     };
   }, [config.floors, config.structure, config.structureKind, config.vehicleOccupancy, metrics.damageScore, metrics.damageColor]);
 
-  return <div className="scene-mount" ref={mountRef} aria-label={`Interactive 3D ${STRUCTURE_KINDS[config.structureKind].label} earthquake simulation`} />;
+  return <div className="scene-mount" ref={mountRef} role="img" aria-label={`Interactive 3D ${STRUCTURE_KINDS[config.structureKind].label} earthquake simulation. Structural response values are also available in the response metrics panel.`} />;
 }
 
 export default function Home() {
@@ -712,12 +718,20 @@ export default function Home() {
   const [elapsed, setElapsed] = useState(0);
   const [resetSignal, setResetSignal] = useState(0);
   const [viewCommand, setViewCommand] = useState<ViewCommand>({ id: 0, action: "fit" });
-  const [appMode, setAppMode] = useState<"structure" | "regional" | "alerts">("alerts");
+  const [appMode, setAppMode] = useState<"structure" | "regional" | "alerts" | "kit">("alerts");
   const [activeTab, setActiveTab] = useState<"motion" | "structure">("motion");
   const [infoOpen, setInfoOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>("guide");
+  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
+  const [largeText, setLargeText] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const [tourStep, setTourStep] = useState(-1);
   const [reportBusy, setReportBusy] = useState(false);
+  const modeNavRef = useRef<HTMLElement>(null);
+  const accessibilityPanelRef = useRef<HTMLDivElement>(null);
+  const helpCenterRef = useRef<HTMLElement>(null);
+  const tourCardRef = useRef<HTMLElement>(null);
   const metrics = useMemo(() => calculateMetrics(config), [config]);
   const kindProfile = STRUCTURE_KINDS[config.structureKind];
   const t = useCallback((value: string) => translateText(value, language), [language]);
@@ -727,10 +741,41 @@ export default function Home() {
     if (saved && LANGUAGES.some(({ code }) => code === saved)) window.setTimeout(() => setLanguage(saved), 0);
   }, []);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem("seismic-accessibility") ?? "{}") as Partial<Record<AccessibilityPreference, boolean>>;
+        setLargeText(saved.largeText ?? false);
+        setHighContrast(saved.highContrast ?? false);
+        setReduceMotion(saved.reduceMotion ?? window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      } catch {
+        setReduceMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.textSize = largeText ? "large" : "standard";
+  }, [largeText]);
+
+  useEffect(() => {
+    const activeMode = modeNavRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    activeMode?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
+  }, [appMode, language]);
+
   const changeLanguage = (nextLanguage: Language) => {
     if (nextLanguage === language) return;
     setLanguage(nextLanguage);
     window.localStorage.setItem("seismic-language", nextLanguage);
+  };
+
+  const updateAccessibility = (preference: AccessibilityPreference, enabled: boolean) => {
+    const next = { largeText, highContrast, reduceMotion, [preference]: enabled };
+    if (preference === "largeText") setLargeText(enabled);
+    if (preference === "highContrast") setHighContrast(enabled);
+    if (preference === "reduceMotion") setReduceMotion(enabled);
+    window.localStorage.setItem("seismic-accessibility", JSON.stringify(next));
   };
 
   useEffect(() => {
@@ -746,11 +791,69 @@ export default function Home() {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (tourStep >= 0) setTourStep(-1);
+      else if (accessibilityOpen) setAccessibilityOpen(false);
       else setInfoOpen(false);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [accessibilityOpen, tourStep]);
+
+  useEffect(() => {
+    if (accessibilityOpen) accessibilityPanelRef.current?.querySelector<HTMLElement>("input")?.focus();
+  }, [accessibilityOpen]);
+
+  useEffect(() => {
+    if (!infoOpen || !helpCenterRef.current) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const dialog = helpCenterRef.current;
+    dialog.focus();
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusable = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    dialog.addEventListener("keydown", trapFocus);
+    return () => {
+      dialog.removeEventListener("keydown", trapFocus);
+      previousFocus?.focus();
+    };
+  }, [infoOpen]);
+
+  useEffect(() => {
+    if (tourStep < 0 || !tourCardRef.current) return;
+    const dialog = tourCardRef.current;
+    dialog.focus();
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusable = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    dialog.addEventListener("keydown", trapFocus);
+    return () => dialog.removeEventListener("keydown", trapFocus);
   }, [tourStep]);
+
+  useEffect(() => {
+    if (!infoOpen || helpTab !== "contact") return;
+
+    const renderBadge = () => window.requestAnimationFrame(() => window.LIRenderAll?.());
+    const linkedInScript = document.getElementById("linkedin-profile-badge-script");
+    linkedInScript?.addEventListener("load", renderBadge);
+    renderBadge();
+    const retryTimer = window.setTimeout(renderBadge, 600);
+
+    return () => {
+      linkedInScript?.removeEventListener("load", renderBadge);
+      window.clearTimeout(retryTimer);
+    };
+  }, [helpTab, infoOpen]);
 
   useEffect(() => {
     if (tourStep < 0) return;
@@ -845,8 +948,9 @@ export default function Home() {
   };
 
   return (
-    <main className="app-shell" key={language}>
+    <main className={`app-shell${largeText ? " a11y-large-text" : ""}${highContrast ? " a11y-high-contrast" : ""}${reduceMotion ? " a11y-reduce-motion" : ""}`} key={language}>
       <LocalizationRuntime language={language} />
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       {introVisible && (
         <div className={`intro-screen${introLeaving ? " intro-leaving" : ""}`} role="status" aria-label="Loading SEISMIC Structural Response Lab">
           {/* The launch artwork must render immediately and is already preloaded by the server. */}
@@ -860,10 +964,11 @@ export default function Home() {
           <span className="brand-mark"><i /><i /><i /></span>
           <div><strong>SEISMIC</strong><small>STRUCTURAL RESPONSE LAB</small></div>
         </div>
-        <nav className="mode-nav" aria-label="Simulator mode">
-          <button type="button" className={appMode === "alerts" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("alerts"); }}>Live alerts</button>
-          <button type="button" className={appMode === "regional" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("regional"); }}>Regional map</button>
-          <button type="button" className={appMode === "structure" ? "active" : ""} onClick={() => setAppMode("structure")}>Structure lab</button>
+        <nav className="mode-nav" ref={modeNavRef} aria-label="Simulator mode">
+          <button type="button" aria-current={appMode === "alerts" ? "page" : undefined} className={appMode === "alerts" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("alerts"); }}>Live alerts</button>
+          <button type="button" aria-current={appMode === "regional" ? "page" : undefined} className={appMode === "regional" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("regional"); }}>Regional map</button>
+          <button type="button" aria-current={appMode === "kit" ? "page" : undefined} className={appMode === "kit" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("kit"); }}>Emergency kit</button>
+          <button type="button" aria-current={appMode === "structure" ? "page" : undefined} className={appMode === "structure" ? "active" : ""} onClick={() => setAppMode("structure")}>Structure lab</button>
         </nav>
         <label className="language-switcher">
           <span className="sr-only">Language</span>
@@ -871,6 +976,27 @@ export default function Home() {
             {LANGUAGES.map((item) => <option key={item.code} value={item.code}>{item.nativeName}</option>)}
           </select>
         </label>
+        <div className="accessibility-menu" ref={accessibilityPanelRef}>
+          <button
+            className="accessibility-trigger"
+            type="button"
+            aria-expanded={accessibilityOpen}
+            aria-controls="accessibility-panel"
+            onClick={() => setAccessibilityOpen((open) => !open)}
+          >
+            <span aria-hidden="true">♿</span><span className="sr-only">Accessibility options</span>
+          </button>
+          {accessibilityOpen && (
+            <section className="accessibility-panel" id="accessibility-panel" aria-label="Accessibility options">
+              <div><span className="eyebrow">ACCESSIBILITY</span><h2>Display and motion</h2></div>
+              <p>Choose the reading preferences that work best for you. Settings are saved on this device.</p>
+              <label><input type="checkbox" checked={largeText} onChange={(event) => updateAccessibility("largeText", event.target.checked)} /><span><strong>Larger text</strong><small>Increase text throughout every application tab.</small></span></label>
+              <label><input type="checkbox" checked={highContrast} onChange={(event) => updateAccessibility("highContrast", event.target.checked)} /><span><strong>Enhanced contrast</strong><small>Strengthen text, borders, controls, and focus indicators.</small></span></label>
+              <label><input type="checkbox" checked={reduceMotion} onChange={(event) => updateAccessibility("reduceMotion", event.target.checked)} /><span><strong>Reduce motion</strong><small>Pause the structural animation and remove decorative movement.</small></span></label>
+              <div className="accessibility-note"><strong>Hearing and screen-reader access</strong><p>Alerts and simulation results are presented as text and visuals; no audio is required. Keyboard navigation, descriptive labels, and live status messages are available throughout the app.</p></div>
+            </section>
+          )}
+        </div>
         <div className="topbar-status">
           <span className="live-dot" /> LIVE MODEL
           <button className="icon-button has-tooltip" type="button" onClick={() => setInfoOpen(true)} aria-label="Open help center">?<span className="tooltip-bubble" aria-hidden="true">Help, walkthrough &amp; contact</span></button>
@@ -879,7 +1005,7 @@ export default function Home() {
 
       {infoOpen && (
         <div className="help-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setInfoOpen(false); }}>
-          <aside className="help-center" role="dialog" aria-modal="true" aria-labelledby="help-title">
+          <aside className="help-center" ref={helpCenterRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="help-title">
             <header className="help-header">
               <div><span className="eyebrow">SEISMIC SUPPORT</span><h2 id="help-title">Help center</h2></div>
               <button className="help-close" type="button" onClick={() => setInfoOpen(false)} aria-label="Close help center">×</button>
@@ -931,10 +1057,19 @@ export default function Home() {
               {helpTab === "contact" && (
                 <section className="contact-section">
                   <div className="contact-heading"><span>in</span><div><h3>Connect with Diego Avella</h3><p>Questions, feedback, and professional inquiries are welcome on LinkedIn.</p></div></div>
-                  <a className="linkedin-link" href={LINKEDIN_URL} target="_blank" rel="noreferrer">
-                    <span><b>LinkedIn</b><small>linkedin.com/in/diego-avella</small></span>
-                    <strong aria-hidden="true">↗</strong>
-                  </a>
+                  <div className="linkedin-badge-shell">
+                    <div
+                      className="badge-base LI-profile-badge"
+                      role="group"
+                      aria-label="Diego Avella LinkedIn profile badge"
+                      data-locale="en_US"
+                      data-size="large"
+                      data-theme="dark"
+                      data-type="HORIZONTAL"
+                      data-vanity="diego-avella"
+                      data-version="v1"
+                    />
+                  </div>
                   <p className="privacy-note">This link opens Diego’s LinkedIn profile in a new tab.</p>
                 </section>
               )}
@@ -943,7 +1078,8 @@ export default function Home() {
         </div>
       )}
 
-      {appMode === "structure" ? <section className="workspace">
+      <div id="main-content" className="main-content" tabIndex={-1}>
+      {appMode === "structure" ? <section className="workspace" aria-label="Structural earthquake simulator">
         <aside className={`control-panel left-panel${tourStep >= 0 && TOUR_STEPS[tourStep].target === "inputs" ? " tour-focus" : ""}`}>
           <div className="panel-title-row">
             <div><span className="eyebrow">INPUT PARAMETERS</span><h1>Earthquake profile</h1></div>
@@ -1006,7 +1142,7 @@ export default function Home() {
             <div className="view-hint"><span>↗</span> Drag to orbit · Scroll to zoom</div>
           </div>
           <div className="scene-wrap">
-            <EarthquakeScene config={config} metrics={metrics} running={running} speed={speed} resetSignal={resetSignal} viewCommand={viewCommand} onTime={handleTime} />
+            <EarthquakeScene config={config} metrics={metrics} running={running && !reduceMotion} speed={speed} resetSignal={resetSignal} viewCommand={viewCommand} onTime={handleTime} />
             <div className="scene-vignette" />
             <div className="zoom-tools" aria-label="Viewport zoom controls">
               <button className="has-tooltip tooltip-right" type="button" onClick={() => sendViewCommand("in")} aria-label={t("Zoom in")}>+<span className="tooltip-bubble" aria-hidden="true">{t("Zoom in")}</span></button>
@@ -1038,6 +1174,7 @@ export default function Home() {
         </section>
 
         <aside className={`results-panel${tourStep >= 0 && TOUR_STEPS[tourStep].target === "results" ? " tour-focus" : ""}`}>
+          <p className="sr-only" aria-live="polite" aria-atomic="true">Current structural response: Modified Mercalli intensity {metrics.mmi.toFixed(1)}, peak ground acceleration {formatNumber(metrics.pga, 3)} g, interstory drift {formatNumber(metrics.drift, 2)} percent, structural state {metrics.damageLabel}, damage index {Math.round(metrics.damageScore)} percent.</p>
           <div className="panel-title-row results-title"><div><span className="eyebrow">LIVE ANALYSIS</span><h2>Response metrics</h2></div><span className="calc-chip">AUTO</span></div>
           <section className="mmi-card">
             <div className="mmi-gauge" style={{ "--mmi-value": `${(metrics.mmi / 12) * 360}deg` } as React.CSSProperties}>
@@ -1074,13 +1211,14 @@ export default function Home() {
 
           <p className="model-note">Indicative educational model · Simplified response spectrum · Values update continuously</p>
         </aside>
-      </section> : appMode === "regional" ? <RegionalSimulator language={language} /> : <LiveAlerts language={language} />}
+      </section> : appMode === "regional" ? <RegionalSimulator language={language} /> : appMode === "kit" ? <EmergencyKit language={language} /> : <LiveAlerts language={language} />}
+      </div>
 
       {tourStep >= 0 && (
         <>
           <div className="tour-shade" aria-hidden="true" />
           <div className="tour-layer" data-target={TOUR_STEPS[tourStep].target} aria-live="polite">
-            <section className="tour-card" role="dialog" aria-modal="true" aria-label={`Guided walkthrough, ${TOUR_STEPS[tourStep].eyebrow}`}>
+            <section className="tour-card" ref={tourCardRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Guided walkthrough, ${TOUR_STEPS[tourStep].eyebrow}`}>
               <button className="tour-close" type="button" onClick={() => setTourStep(-1)} aria-label="Exit walkthrough">×</button>
               <span>{TOUR_STEPS[tourStep].eyebrow}</span>
               <h3>{TOUR_STEPS[tourStep].title}</h3>

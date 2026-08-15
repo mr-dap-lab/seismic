@@ -224,6 +224,10 @@ export default function RegionalSimulator({ language }: { language: Language }) 
     mapInstanceRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
+    window.requestAnimationFrame(() => {
+      const scale = map.getContainer().querySelector<HTMLElement>(".maplibregl-ctrl-scale");
+      if (scale) scale.style.fontSize = "12px";
+    });
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(mapRef.current);
     const updateOverlay = () => setOverlayGeometry(projectImpactGeometry(map, centerRef.current, radiiRef.current));
@@ -431,7 +435,8 @@ export default function RegionalSimulator({ language }: { language: Language }) 
       <div className="regional-map-panel">
         <header><div><span className="eyebrow">OPENSTREETMAP IMPACT MAP</span><strong>{locationLabel}</strong></div><span className="map-provider">2D · OpenStreetMap</span></header>
         <div className="regional-map-stage">
-          <div className={`regional-map${placingEpicenter ? " placing-epicenter" : ""}`} ref={mapRef} aria-label="Interactive OpenStreetMap earthquake impact map" />
+          <p className="sr-only" id="regional-map-description">Interactive map showing an epicenter and three labeled impact zones. Keyboard users can set the exact epicenter with the latitude and longitude fields.</p>
+          <div className={`regional-map${placingEpicenter ? " placing-epicenter" : ""}`} ref={mapRef} role="region" tabIndex={0} aria-label="Interactive OpenStreetMap earthquake impact map" aria-describedby="regional-map-description" />
           {overlayGeometry && <svg ref={impactOverlayRef} className="regional-impact-overlay" viewBox={`0 0 ${overlayGeometry.width} ${overlayGeometry.height}`} aria-hidden="true">
             <ellipse className="impact-ring impact-ring-low" cx={overlayGeometry.cx} cy={overlayGeometry.cy} rx={overlayGeometry.lowX} ry={overlayGeometry.lowY} fill="#f1c75b" fillOpacity="0.18" stroke="#d7aa3c" strokeWidth="3" />
             <ellipse className="impact-ring impact-ring-mid" cx={overlayGeometry.cx} cy={overlayGeometry.cy} rx={overlayGeometry.midX} ry={overlayGeometry.midY} fill="#ee925b" fillOpacity="0.22" stroke="#dc7543" strokeWidth="3" />
@@ -441,12 +446,13 @@ export default function RegionalSimulator({ language }: { language: Language }) 
           </svg>}
         </div>
         {!mapReady && !mapError && <div className="map-loading" role="status"><i /><span>Loading map…</span></div>}
-        {mapError && <p className="map-error">{mapError}</p>}
+        {mapError && <p className="map-error" role="alert">{mapError}</p>}
         {placingEpicenter && <div className="epicenter-map-prompt" role="status"><i aria-hidden="true" /><span><strong>Set epicenter</strong>Click once on the map</span><button type="button" onClick={cancelEpicenterPlacement}>Cancel</button></div>}
         <div className="map-legend"><span><i className="zone-high" /> Highest · {radii.high.toFixed(0)} km</span><span><i className="zone-mid" /> Moderate · {radii.mid.toFixed(0)} km</span><span><i className="zone-low" /> Lower · {radii.low.toFixed(0)} km</span><b>{placingEpicenter ? "Click the map to place epicenter" : "Activate Set epicenter to choose a point"}</b></div>
       </div>
 
-      <aside className="regional-results">
+      <aside className="regional-results" aria-label="Regional scenario results">
+        <p className="sr-only" aria-live="polite" aria-atomic="true">Regional scenario result: epicenter intensity {centerMotion.mmi.toFixed(1)}, epicenter peak ground acceleration {centerMotion.pga.toFixed(3)} g. Highest impact radius {radii.high.toFixed(0)} kilometers, moderate radius {radii.mid.toFixed(0)} kilometers, and lower radius {radii.low.toFixed(0)} kilometers.</p>
         <span className="eyebrow">AREA ANALYSIS</span><h2>Scenario summary</h2>
         <div className="regional-primary"><span>EPICENTER MMI</span><strong>{centerMotion.mmi.toFixed(1)}</strong><b>{riskLabel(centerMotion.mmi)}</b></div>
         <div className="regional-metrics"><div><span>Epicenter PGA</span><strong>{centerMotion.pga.toFixed(3)} g</strong></div><div><span>Outer-edge PGA</span><strong>{edgeMotion.pga.toFixed(3)} g</strong></div><div><span>Modeled area</span><strong>{Math.round(Math.PI * radii.low ** 2).toLocaleString()} km²</strong></div><div><span>Site amplification</span><strong>× {SITE_FACTORS[siteClass].toFixed(2)}</strong></div></div>

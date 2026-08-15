@@ -6,7 +6,7 @@ export default function ParameterTooltip({ description }: { description: string 
   const tooltipId = useId();
 
   return (
-    <span className="parameter-tooltip" tabIndex={0} aria-describedby={tooltipId}>
+    <span className="parameter-tooltip" tabIndex={0} aria-label={`Parameter help: ${description}`} aria-describedby={tooltipId}>
       <span aria-hidden="true">?</span>
       <span className="parameter-tooltip-bubble" id={tooltipId} role="tooltip">{description}</span>
     </span>
