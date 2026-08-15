@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ParameterLabel } from "./components/ParameterTooltip";
+import LiveAlerts from "./components/LiveAlerts";
 import RegionalSimulator from "./components/RegionalSimulator";
 import { createSeismicPdf } from "./lib/pdf-report.mjs";
 import { LANGUAGES, LocalizationRuntime, translateText, type Language } from "./lib/i18n";
@@ -711,7 +712,7 @@ export default function Home() {
   const [elapsed, setElapsed] = useState(0);
   const [resetSignal, setResetSignal] = useState(0);
   const [viewCommand, setViewCommand] = useState<ViewCommand>({ id: 0, action: "fit" });
-  const [appMode, setAppMode] = useState<"structure" | "regional">("structure");
+  const [appMode, setAppMode] = useState<"structure" | "regional" | "alerts">("alerts");
   const [activeTab, setActiveTab] = useState<"motion" | "structure">("motion");
   const [infoOpen, setInfoOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>("guide");
@@ -860,8 +861,9 @@ export default function Home() {
           <div><strong>SEISMIC</strong><small>STRUCTURAL RESPONSE LAB</small></div>
         </div>
         <nav className="mode-nav" aria-label="Simulator mode">
-          <button type="button" className={appMode === "structure" ? "active" : ""} onClick={() => setAppMode("structure")}>Structure lab</button>
+          <button type="button" className={appMode === "alerts" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("alerts"); }}>Live alerts</button>
           <button type="button" className={appMode === "regional" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("regional"); }}>Regional map</button>
+          <button type="button" className={appMode === "structure" ? "active" : ""} onClick={() => setAppMode("structure")}>Structure lab</button>
         </nav>
         <label className="language-switcher">
           <span className="sr-only">Language</span>
@@ -1072,7 +1074,7 @@ export default function Home() {
 
           <p className="model-note">Indicative educational model · Simplified response spectrum · Values update continuously</p>
         </aside>
-      </section> : <RegionalSimulator language={language} />}
+      </section> : appMode === "regional" ? <RegionalSimulator language={language} /> : <LiveAlerts language={language} />}
 
       {tourStep >= 0 && (
         <>

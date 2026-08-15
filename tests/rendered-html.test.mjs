@@ -16,10 +16,11 @@ test("builds the production-ready SEISMIC application", async () => {
   assert.match(page, /RegionalSimulator/);
 });
 
-test("wires PDF, geolocated regional mapping, parameter help, and Vercel configuration", async () => {
-  const [page, regional, tooltip, i18n, pdf, css, packageJson, vercel] = await Promise.all([
+test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, and Vercel configuration", async () => {
+  const [page, regional, liveAlerts, tooltip, i18n, pdf, css, packageJson, vercel] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/RegionalSimulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/LiveAlerts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ParameterTooltip.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/i18n.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/pdf-report.mjs", import.meta.url), "utf8"),
@@ -36,6 +37,12 @@ test("wires PDF, geolocated regional mapping, parameter help, and Vercel configu
   assert.match(page, /setLanguage\(nextLanguage\)/);
   assert.doesNotMatch(page, /window\.location\.reload/);
   assert.match(page, /RegionalSimulator language=\{language\}/);
+  assert.match(page, /LiveAlerts language=\{language\}/);
+  assert.match(page, /appMode === "alerts"/);
+  assert.match(page, /useState<"structure" \| "regional" \| "alerts">\("alerts"\)/);
+  assert.match(page, /Live alerts/);
+  assert.ok(page.indexOf(">Live alerts</button>") < page.indexOf(">Regional map</button>"));
+  assert.ok(page.indexOf(">Regional map</button>") < page.indexOf(">Structure lab</button>"));
   assert.match(i18n, /"en" \| "es" \| "fr" \| "yue" \| "hi" \| "ar"/);
   assert.match(i18n, /Español/);
   assert.match(i18n, /Français/);
@@ -78,6 +85,29 @@ test("wires PDF, geolocated regional mapping, parameter help, and Vercel configu
   assert.match(regional, /projectImpactGeometry/);
   assert.match(regional, /regional-impact-overlay/);
   assert.match(regional, /map\.triggerRepaint\(\)/);
+  assert.match(liveAlerts, /earthquake\.usgs\.gov\/earthquakes\/feed\/v1\.0\/summary\/all_day\.geojson/);
+  assert.match(liveAlerts, /earthquake\.usgs\.gov\/fdsnws\/event\/1\/query/);
+  assert.match(liveAlerts, /"48hours": "Past 48 hours"/);
+  assert.match(liveAlerts, /"72hours": "Past 72 hours"/);
+  assert.match(liveAlerts, /const WORLD_ZOOM = 1\.45/);
+  assert.match(liveAlerts, /zoom: WORLD_ZOOM/);
+  assert.match(liveAlerts, /setProjection\(\{ type: "globe" \}\)/);
+  assert.match(liveAlerts, /window\.setInterval\(\(\) => void refresh\(\), 60_000\)/);
+  assert.match(liveAlerts, /Notification\.requestPermission\(\)/);
+  assert.match(liveAlerts, /new Notification/);
+  assert.match(liveAlerts, /seenIdsRef/);
+  assert.match(liveAlerts, /cache: "no-store"/);
+  assert.match(liveAlerts, /USGS data is preliminary and may be revised/);
+  assert.match(liveAlerts, /Data source: U\.S\. Geological Survey/);
+  assert.match(liveAlerts, /from "maplibre-gl"/);
+  assert.match(liveAlerts, /const WORLD_MAP_STYLE: StyleSpecification/);
+  assert.match(liveAlerts, /tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png/);
+  assert.match(liveAlerts, /function earthquakePoints/);
+  assert.match(liveAlerts, /id: "live-earthquake-points"/);
+  assert.match(liveAlerts, /new Marker/);
+  assert.match(liveAlerts, /alerts-earthquake-marker/);
+  assert.match(liveAlerts, /WorldEarthquakeMap events=\{filteredEvents\}/);
+  assert.match(liveAlerts, /Worldwide earthquake map/);
   assert.match(tooltip, /role="tooltip"/);
   assert.match(tooltip, /aria-describedby/);
   assert.match(css, /\.parameter-tooltip-bubble/);
@@ -89,6 +119,14 @@ test("wires PDF, geolocated regional mapping, parameter help, and Vercel configu
   assert.match(css, /\.language-switcher/);
   assert.match(css, /min-width: 148px/);
   assert.match(css, /\.mode-nav \{ position: absolute/);
+  assert.match(css, /\.live-alerts-shell/);
+  assert.match(css, /\.alerts-event-list/);
+  assert.match(css, /\.alerts-world-map-section/);
+  assert.match(css, /\.alerts-world-map-stage/);
+  assert.match(css, /\.alerts-world-map\.maplibregl-map\s*\{[^}]*position:\s*absolute;[^}]*height:\s*100%/s);
+  assert.match(css, /\.alerts-earthquake-marker/);
+  assert.match(css, /\.alerts-map-selection/);
+  assert.match(css, /\.mode-nav button \{ flex: 1; min-width: 0/);
   assert.match(css, /\.select-control select, \.regional-field select \{ min-height: 44px; font-size: 14px/);
   assert.match(css, /html\[dir="rtl"\]/);
   assert.doesNotMatch(css, /\.regional-report/);
