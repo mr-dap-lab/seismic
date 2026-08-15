@@ -63,6 +63,11 @@ const LOCALES: Record<Language, string> = {
   yue: "zh-HK",
   hi: "hi-IN",
   ar: "ar-SA",
+  pt: "pt-BR",
+  ru: "ru-RU",
+  ja: "ja-JP",
+  it: "it-IT",
+  de: "de-DE",
 };
 
 const WORLD_CENTER: [number, number] = [0, 0];
@@ -239,12 +244,12 @@ function WorldEarthquakeMap({ events, selectedEvent, onSelect, t, locale }: {
 
   useEffect(() => {
     if (!selectedEvent || !mapInstanceRef.current) return;
-    mapInstanceRef.current.easeTo({ center: [selectedEvent.geometry.coordinates[0], selectedEvent.geometry.coordinates[1]], zoom: Math.max(mapInstanceRef.current.getZoom(), 3), duration: 650 });
+    mapInstanceRef.current.jumpTo({ center: [selectedEvent.geometry.coordinates[0], selectedEvent.geometry.coordinates[1]], zoom: Math.max(mapInstanceRef.current.getZoom(), 3) });
   }, [selectedEvent]);
 
   const resetWorldView = () => {
     onSelect(null);
-    mapInstanceRef.current?.easeTo({ center: WORLD_CENTER, zoom: WORLD_ZOOM, pitch: 0, bearing: 0, duration: 650 });
+    mapInstanceRef.current?.jumpTo({ center: WORLD_CENTER, zoom: WORLD_ZOOM, pitch: 0, bearing: 0 });
   };
 
   return (

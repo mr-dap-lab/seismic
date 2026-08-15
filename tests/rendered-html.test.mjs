@@ -21,13 +21,14 @@ test("builds the production-ready SEISMIC application", async () => {
 });
 
 test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, and Vercel configuration", async () => {
-  const [page, regional, liveAlerts, emergencyKit, tooltip, i18n, pdf, css, packageJson, vercel] = await Promise.all([
+  const [page, regional, liveAlerts, emergencyKit, tooltip, i18n, i18nExtended, pdf, css, packageJson, vercel] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/RegionalSimulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/LiveAlerts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/EmergencyKit.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ParameterTooltip.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/i18n.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/i18n-extended.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/pdf-report.mjs", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -66,12 +67,23 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.ok(page.indexOf(">Regional map</button>") < page.indexOf(">Emergency kit</button>"));
   assert.ok(page.indexOf(">Emergency kit</button>") < page.indexOf(">Structure lab</button>"));
   assert.ok(page.indexOf(">Regional map</button>") < page.indexOf(">Structure lab</button>"));
-  assert.match(i18n, /"en" \| "es" \| "fr" \| "yue" \| "hi" \| "ar"/);
+  assert.match(i18n, /"en" \| "es" \| "fr" \| "yue" \| "hi" \| "ar" \| "pt" \| "ru" \| "ja" \| "it" \| "de"/);
   assert.match(i18n, /Español/);
   assert.match(i18n, /Français/);
   assert.match(i18n, /廣東話/);
   assert.match(i18n, /हिन्दी/);
   assert.match(i18n, /العربية/);
+  assert.match(i18n, /Português/);
+  assert.match(i18n, /Русский/);
+  assert.match(i18n, /日本語/);
+  assert.match(i18n, /Italiano/);
+  assert.match(i18n, /Deutsch/);
+  assert.equal((i18nExtended.match(/^  ".*": \[$/gm) ?? []).length, 395);
+  assert.match(i18nExtended, /Kit de emergência/);
+  assert.match(i18nExtended, /Аварийный комплект/);
+  assert.match(i18nExtended, /緊急キット/);
+  assert.match(i18nExtended, /Kit di emergenza/);
+  assert.match(i18nExtended, /Notfallset/);
   assert.match(i18n, /Emergency kit checklist/);
   assert.match(i18n, /Kit de emergencia/);
   assert.match(i18n, /language === "ar" \? "rtl" : "ltr"/);
@@ -116,6 +128,11 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(liveAlerts, /earthquake\.usgs\.gov\/fdsnws\/event\/1\/query/);
   assert.match(liveAlerts, /"48hours": "Past 48 hours"/);
   assert.match(liveAlerts, /"72hours": "Past 72 hours"/);
+  assert.match(liveAlerts, /pt: "pt-BR"/);
+  assert.match(liveAlerts, /ru: "ru-RU"/);
+  assert.match(liveAlerts, /ja: "ja-JP"/);
+  assert.match(liveAlerts, /it: "it-IT"/);
+  assert.match(liveAlerts, /de: "de-DE"/);
   assert.match(liveAlerts, /const WORLD_ZOOM = 1\.45/);
   assert.match(liveAlerts, /zoom: WORLD_ZOOM/);
   assert.match(liveAlerts, /setProjection\(\{ type: "globe" \}\)/);

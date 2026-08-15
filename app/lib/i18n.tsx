@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import { extendedTranslations } from "./i18n-extended";
 
-export type Language = "en" | "es" | "fr" | "yue" | "hi" | "ar";
+export type Language = "en" | "es" | "fr" | "yue" | "hi" | "ar" | "pt" | "ru" | "ja" | "it" | "de";
 
 export const LANGUAGES: Array<{ code: Language; flag: string; name: string; nativeName: string; dir: "ltr" | "rtl" }> = [
   { code: "en", flag: "🇺🇸", name: "English", nativeName: "English", dir: "ltr" },
@@ -11,6 +12,11 @@ export const LANGUAGES: Array<{ code: Language; flag: string; name: string; nati
   { code: "yue", flag: "🇭🇰", name: "Cantonese", nativeName: "廣東話", dir: "ltr" },
   { code: "hi", flag: "🇮🇳", name: "Hindi", nativeName: "हिन्दी", dir: "ltr" },
   { code: "ar", flag: "🇸🇦", name: "Arabic", nativeName: "العربية", dir: "rtl" },
+  { code: "pt", flag: "🇧🇷", name: "Portuguese", nativeName: "Português", dir: "ltr" },
+  { code: "ru", flag: "🇷🇺", name: "Russian", nativeName: "Русский", dir: "ltr" },
+  { code: "ja", flag: "🇯🇵", name: "Japanese", nativeName: "日本語", dir: "ltr" },
+  { code: "it", flag: "🇮🇹", name: "Italian", nativeName: "Italiano", dir: "ltr" },
+  { code: "de", flag: "🇩🇪", name: "German", nativeName: "Deutsch", dir: "ltr" },
 ];
 
 type Row = [string, string, string, string, string, string];
@@ -372,6 +378,35 @@ const rows: Row[] = [
   ["Indicative educational screening model · Not for engineering or emergency decisions", "Modelo educativo indicativo · No apto para decisiones de ingeniería o emergencia", "Modèle pédagogique indicatif · Non destiné aux décisions d’ingénierie ou d’urgence", "指示性教育篩查模型 · 不可用於工程或緊急決策", "संकेतात्मक शैक्षिक स्क्रीनिंग मॉडल · इंजीनियरिंग या आपात निर्णयों के लिए नहीं", "نموذج فحص تعليمي إرشادي · ليس لقرارات الهندسة أو الطوارئ"],
   ["This report is generated from a simplified educational simulation. It does not replace the expertise, inspection, calculations, or professional judgment of a licensed structural or civil engineer. The website and its creators accept no responsibility or liability for decisions, designs, losses, injuries, or damages based on this report. Do not use this report for construction, code compliance, emergency planning, property transactions, or life-safety decisions.", "Este informe se genera mediante una simulación educativa simplificada. No reemplaza la experiencia, inspección, cálculos ni criterio profesional de un ingeniero estructural o civil autorizado. El sitio web y sus creadores no aceptan responsabilidad por decisiones, diseños, pérdidas, lesiones o daños basados en este informe. No lo utilice para construcción, cumplimiento normativo, planificación de emergencias, transacciones inmobiliarias ni decisiones de seguridad humana.", "Ce rapport est issu d’une simulation pédagogique simplifiée. Il ne remplace ni l’expertise, ni l’inspection, ni les calculs, ni le jugement d’un ingénieur agréé. Le site et ses créateurs déclinent toute responsabilité pour les décisions, conceptions, pertes, blessures ou dommages fondés sur ce rapport. Ne l’utilisez pas pour la construction, la conformité réglementaire, la planification d’urgence, les transactions immobilières ou la sécurité des personnes.", "本報告由簡化教育模擬產生，不能取代持牌結構或土木工程師嘅專業知識、檢查、計算或判斷。網站及創作者對基於本報告嘅決定、設計、損失、傷害或損壞概不負責。請勿用於施工、法規合規、緊急規劃、物業交易或生命安全決策。", "यह रिपोर्ट सरल शैक्षिक सिमुलेशन से बनाई गई है। यह लाइसेंसधारी संरचनात्मक या सिविल इंजीनियर की विशेषज्ञता, निरीक्षण, गणना या पेशेवर निर्णय का विकल्प नहीं है। वेबसाइट और निर्माता इस रिपोर्ट पर आधारित निर्णय, डिज़ाइन, हानि, चोट या क्षति की जिम्मेदारी स्वीकार नहीं करते। निर्माण, संहिता अनुपालन, आपात योजना, संपत्ति लेनदेन या जीवन-सुरक्षा निर्णयों में इसका उपयोग न करें।", "أُنشئ هذا التقرير من محاكاة تعليمية مبسطة، ولا يحل محل خبرة مهندس إنشائي أو مدني مرخص أو فحصه أو حساباته أو حكمه المهني. لا يتحمل الموقع أو منشئوه مسؤولية القرارات أو التصاميم أو الخسائر أو الإصابات أو الأضرار المبنية عليه. لا تستخدمه للبناء أو الامتثال للكود أو التخطيط للطوارئ أو المعاملات العقارية أو قرارات سلامة الأرواح."],
   ["Impact rings use simplified attenuation, a uniform representative site class, and screening thresholds. They do not account for fault geometry, topography, basin effects, liquefaction, landslides, infrastructure condition, building inventory, or official hazard products. Location detection is used only in the browser to select an initial area.", "Los anillos de impacto usan atenuación simplificada, una clase de sitio uniforme y umbrales de evaluación. No consideran geometría de fallas, topografía, efectos de cuenca, licuefacción, deslizamientos, infraestructura, inventario de edificios ni productos oficiales de amenaza. La ubicación solo se usa en el navegador para seleccionar el área inicial.", "Les anneaux utilisent une atténuation simplifiée, une classe de site uniforme et des seuils de dépistage. Ils ne tiennent pas compte de la géométrie des failles, de la topographie, des effets de bassin, de la liquéfaction, des glissements, de l’état des infrastructures, du parc immobilier ou des produits officiels. La localisation sert uniquement à choisir la zone initiale.", "影響圈採用簡化衰減、均一代表場地類別及篩查門檻，未有考慮斷層幾何、地形、盆地效應、液化、山泥傾瀉、基建狀況、建築存量或官方災害產品。位置偵測只喺瀏覽器用嚟選擇初始區域。", "प्रभाव वलय सरल क्षीणन, समान प्रतिनिधि साइट वर्ग और स्क्रीनिंग सीमाएँ उपयोग करते हैं। इनमें भ्रंश ज्यामिति, स्थलाकृति, बेसिन प्रभाव, द्रवीकरण, भूस्खलन, अवसंरचना स्थिति, भवन सूची या आधिकारिक खतरा उत्पाद शामिल नहीं हैं। स्थान पहचान केवल प्रारंभिक क्षेत्र चुनने के लिए होती है।", "تستخدم حلقات التأثير توهينًا مبسطًا وفئة موقع موحدة وحدود فحص، ولا تراعي هندسة الصدوع أو التضاريس أو تأثيرات الأحواض أو التسييل أو الانهيارات الأرضية أو حالة البنية التحتية أو مخزون المباني أو منتجات المخاطر الرسمية. يُستخدم تحديد الموقع في المتصفح لاختيار المنطقة الأولية فقط."],
+  ["Map", "Mapa", "Carte", "地圖", "मानचित्र", "الخريطة"],
+  ["Toggle attribution", "Alternar atribución", "Afficher ou masquer l’attribution", "切換資料來源標示", "श्रेय दिखाएँ या छिपाएँ", "إظهار أو إخفاء بيانات النسب"],
+  ["GREEN", "VERDE", "VERT", "綠色", "हरा", "أخضر"],
+  ["YELLOW", "AMARILLO", "JAUNE", "黃色", "पीला", "أصفر"],
+  ["ORANGE", "NARANJA", "ORANGE", "橙色", "नारंगी", "برتقالي"],
+  ["RED", "ROJO", "ROUGE", "紅色", "लाल", "أحمر"],
+  ["Location data © OpenStreetMap contributors", "Datos de ubicación © colaboradores de OpenStreetMap", "Données de localisation © contributeurs OpenStreetMap", "位置資料 © OpenStreetMap 貢獻者", "स्थान डेटा © OpenStreetMap योगदानकर्ता", "بيانات الموقع © مساهمو OpenStreetMap"],
+  ["Location access is used only to choose the initial area and is not stored. Activate", "El acceso a la ubicación solo se usa para elegir el área inicial y no se almacena. Activa", "L’accès à la position sert uniquement à choisir la zone initiale et n’est pas conservé. Activez", "位置權限只用嚟選擇初始區域，唔會儲存。啟動", "स्थान पहुँच केवल प्रारंभिक क्षेत्र चुनने के लिए है और सहेजी नहीं जाती। सक्रिय करें", "يُستخدم الوصول إلى الموقع لاختيار المنطقة الأولية فقط ولا يُخزّن. فعّل"],
+  [", then click once on the map.", " y luego haz clic una vez en el mapa.", " puis cliquez une fois sur la carte.", "，然後喺地圖點一下。", ", फिर मानचित्र पर एक बार क्लिक करें।", "، ثم انقر مرة واحدة على الخريطة."],
+  ["Interactive map showing an epicenter and three labeled impact zones. Keyboard users can set the exact epicenter with the latitude and longitude fields.", "Mapa interactivo que muestra un epicentro y tres zonas de impacto etiquetadas. Los usuarios de teclado pueden definir el epicentro exacto con los campos de latitud y longitud.", "Carte interactive affichant un épicentre et trois zones d’impact libellées. Les utilisateurs du clavier peuvent définir l’épicentre exact avec les champs de latitude et de longitude.", "互動地圖顯示震央同三個有標籤嘅影響區。鍵盤使用者可以用緯度同經度欄位設定準確震央。", "उपरिकेंद्र और तीन नामांकित प्रभाव क्षेत्र दिखाने वाला इंटरैक्टिव मानचित्र। कीबोर्ड उपयोगकर्ता अक्षांश और देशांतर फ़ील्ड से सटीक उपरिकेंद्र निर्धारित कर सकते हैं।", "خريطة تفاعلية تعرض المركز السطحي وثلاث مناطق تأثير مسماة. يمكن لمستخدمي لوحة المفاتيح تحديد المركز بدقة باستخدام حقلي خط العرض وخط الطول."],
+  ["Regional scenario results", "Resultados del escenario regional", "Résultats du scénario régional", "區域情境結果", "क्षेत्रीय परिदृश्य परिणाम", "نتائج السيناريو الإقليمي"],
+  ["Regional scenario result: epicenter intensity", "Resultado del escenario regional: intensidad en el epicentro", "Résultat du scénario régional : intensité à l’épicentre", "區域情境結果：震央烈度", "क्षेत्रीय परिदृश्य परिणाम: उपरिकेंद्र तीव्रता", "نتيجة السيناريو الإقليمي: الشدة عند المركز"],
+  [", epicenter peak ground acceleration", ", aceleración máxima del suelo en el epicentro", ", accélération maximale du sol à l’épicentre", "，震央峰值地面加速度", ", उपरिकेंद्र पर अधिकतम भूमि त्वरण", "، أقصى تسارع أرضي عند المركز"],
+  ["kilometers, moderate radius", "kilómetros, radio moderado", "kilomètres, rayon modéré", "公里，中等半徑", "किलोमीटर, मध्यम त्रिज्या", "كيلومتر، نصف القطر المتوسط"],
+  ["kilometers, and lower radius", "kilómetros y radio menor", "kilomètres et rayon faible", "公里，以及較低半徑", "किलोमीटर, और निम्न त्रिज्या", "كيلومتر، ونصف القطر الأدنى"],
+  ["kilometers.", "kilómetros.", "kilomètres.", "公里。", "किलोमीटर।", "كيلومتر."],
+  ["EPICENTER MMI", "MMI DEL EPICENTRO", "MMI À L’ÉPICENTRE", "震央 MMI", "उपरिकेंद्र MMI", "MMI عند المركز"],
+  ["Structural earthquake simulator", "Simulador estructural de terremotos", "Simulateur structurel de séisme", "結構地震模擬器", "संरचनात्मक भूकंप सिम्युलेटर", "محاكي الزلازل الإنشائي"],
+  ["-story", " pisos", " étages", " 層", " मंजिल", " طابق"],
+  ["Current structural response: Modified Mercalli intensity", "Respuesta estructural actual: intensidad de Mercalli Modificada", "Réponse structurelle actuelle : intensité de Mercalli modifiée", "目前結構反應：修訂麥加利烈度", "वर्तमान संरचनात्मक प्रतिक्रिया: संशोधित मर्कैली तीव्रता", "الاستجابة الإنشائية الحالية: شدة ميركالي المعدلة"],
+  [", peak ground acceleration", ", aceleración máxima del suelo", ", accélération maximale du sol", "，峰值地面加速度", ", अधिकतम भूमि त्वरण", "، أقصى تسارع أرضي"],
+  ["g, interstory drift", "g, deriva entre pisos", "g, dérive inter-étage", "g，層間位移", "g, अंतर-मंजिला ड्रिफ्ट", "g، انجراف الطوابق"],
+  ["percent, structural state", "por ciento, estado estructural", "pour cent, état structurel", "百分比，結構狀態", "प्रतिशत, संरचनात्मक स्थिति", "بالمئة، الحالة الإنشائية"],
+  ["percent.", "por ciento.", "pour cent.", "百分比。", "प्रतिशत।", "بالمئة."],
+  ["Considerable damage in ordinary structures.", "Daños considerables en estructuras ordinarias.", "Dommages considérables dans les structures ordinaires.", "普通結構有相當程度損壞。", "सामान्य संरचनाओं में काफी क्षति।", "أضرار كبيرة في المنشآت العادية."],
+  ["Equivalent lateral force", "Fuerza lateral equivalente", "Force latérale équivalente", "等效側向力", "समतुल्य पार्श्व बल", "القوة الجانبية المكافئة"],
+  ["Indicative educational model · Simplified response spectrum · Values update continuously", "Modelo educativo indicativo · Espectro de respuesta simplificado · Los valores se actualizan continuamente", "Modèle pédagogique indicatif · Spectre de réponse simplifié · Valeurs mises à jour en continu", "指示性教育模型 · 簡化反應譜 · 數值持續更新", "संकेतात्मक शैक्षिक मॉडल · सरल प्रतिक्रिया स्पेक्ट्रम · मान लगातार अपडेट होते हैं", "نموذج تعليمي إرشادي · طيف استجابة مبسط · تُحدّث القيم باستمرار"],
+  ["m/s² peak ground", "m/s² de aceleración máxima del suelo", "m/s² d’accélération maximale du sol", "m/s² 峰值地面加速度", "m/s² अधिकतम भूमि त्वरण", "m/s² من أقصى تسارع أرضي"],
+  ["Hz natural frequency", "Hz de frecuencia natural", "Hz de fréquence propre", "Hz 自然頻率", "Hz प्राकृतिक आवृत्ति", "Hz من التردد الطبيعي"],
   ["Not felt", "No percibido", "Non ressenti", "無感", "महसूस नहीं हुआ", "غير محسوس"],
   ["Very weak", "Muy débil", "Très faible", "非常微弱", "बहुत कमजोर", "ضعيف جدًا"],
   ["Weak", "Débil", "Faible", "微弱", "कमजोर", "ضعيف"],
@@ -383,8 +418,19 @@ const rows: Row[] = [
   ["Extreme", "Extremo", "Extrême", "極端", "चरम", "متطرف"],
 ];
 
-const indices: Record<Language, number> = { en: 0, es: 1, fr: 2, yue: 3, hi: 4, ar: 5 };
-const dictionaries = Object.fromEntries(LANGUAGES.map(({ code }) => [code, new Map(rows.map((row) => [row[0], row[indices[code]]]))])) as Record<Language, Map<string, string>>;
+type BaseLanguage = "en" | "es" | "fr" | "yue" | "hi" | "ar";
+type ExtendedLanguage = "pt" | "ru" | "ja" | "it" | "de";
+const indices: Record<BaseLanguage, number> = { en: 0, es: 1, fr: 2, yue: 3, hi: 4, ar: 5 };
+const extendedIndices: Record<ExtendedLanguage, number> = { pt: 0, ru: 1, ja: 2, it: 3, de: 4 };
+const dictionaries = Object.fromEntries(LANGUAGES.map(({ code }) => {
+  const dictionary = code in indices
+    ? new Map(rows.map((row) => [row[0], row[indices[code as BaseLanguage]]]))
+    : new Map(rows.map((row) => [row[0], extendedTranslations[row[0]]?.[extendedIndices[code as ExtendedLanguage]] ?? row[0]]));
+  return [code, dictionary];
+})) as Record<Language, Map<string, string>>;
+const storyTerms: Record<Language, string> = { en: "$1-story", es: "$1 pisos", fr: "$1 étages", yue: "$1 層", hi: "$1 मंजिल", ar: "$1 طابق", pt: "$1 andares", ru: "$1 этажей", ja: "$1階", it: "$1 piani", de: "$1 Stockwerke" };
+const damageTerms: Record<Language, string> = { en: "damage index", es: "índice de daño", fr: "indice de dommage", yue: "損壞指數", hi: "क्षति सूचकांक", ar: "مؤشر الضرر", pt: "índice de danos", ru: "индекс повреждений", ja: "損傷指数", it: "indice di danno", de: "Schadensindex" };
+const limitTerms: Record<Language, string> = { en: "limit ", es: "límite ", fr: "limite ", yue: "限值 ", hi: "सीमा ", ar: "الحد ", pt: "limite ", ru: "предел ", ja: "限界 ", it: "limite ", de: "Grenzwert " };
 const originalText = new WeakMap<Text, string>();
 const renderedText = new WeakMap<Text, string>();
 const originalAttributes = new WeakMap<Element, Map<string, string>>();
@@ -401,9 +447,9 @@ export function translateText(text: string, language: Language) {
   let translated = core;
   const replaceable = [...dictionary.entries()].filter(([source]) => source.length >= 4).sort((a, b) => b[0].length - a[0].length);
   for (const [source, target] of replaceable) translated = translated.replaceAll(source, target);
-  translated = translated.replace(/(\d+)-story/g, language === "es" ? "$1 pisos" : language === "fr" ? "$1 étages" : language === "yue" ? "$1 層" : language === "hi" ? "$1 मंजिल" : "$1 طابق");
-  translated = translated.replace(/damage index/g, language === "es" ? "índice de daño" : language === "fr" ? "indice de dommage" : language === "yue" ? "損壞指數" : language === "hi" ? "क्षति सूचकांक" : "مؤشر الضرر");
-  translated = translated.replace(/limit /g, language === "es" ? "límite " : language === "fr" ? "limite " : language === "yue" ? "限值 " : language === "hi" ? "सीमा " : "الحد ");
+  translated = translated.replace(/(\d+)-story/g, storyTerms[language]);
+  translated = translated.replace(/damage index/g, damageTerms[language]);
+  translated = translated.replace(/limit /g, limitTerms[language]);
   return `${leading}${translated}${trailing}`;
 }
 
@@ -446,7 +492,7 @@ function translateTree(root: ParentNode, language: Language) {
 export function LocalizationRuntime({ language }: { language: Language }) {
   useEffect(() => {
     let active = true;
-    document.documentElement.lang = language === "yue" ? "zh-HK" : language;
+    document.documentElement.lang = language === "yue" ? "zh-HK" : language === "pt" ? "pt-BR" : language;
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
     document.body.dataset.language = language;
     translateTree(document.body, language);

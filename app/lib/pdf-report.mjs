@@ -1,5 +1,5 @@
 const DISCLAIMER = "This report is generated from a simplified educational simulation. It does not replace the expertise, inspection, calculations, or professional judgment of a licensed structural or civil engineer. The website and its creators accept no responsibility or liability for decisions, designs, losses, injuries, or damages based on this report. Do not use this report for construction, code compliance, emergency planning, property transactions, or life-safety decisions.";
-const LANGUAGE_LOCALES = { en: "en-US", es: "es-ES", fr: "fr-FR", yue: "zh-HK", hi: "hi-IN", ar: "ar-SA" };
+const LANGUAGE_LOCALES = { en: "en-US", es: "es-ES", fr: "fr-FR", yue: "zh-HK", hi: "hi-IN", ar: "ar-SA", pt: "pt-BR", ru: "ru-RU", ja: "ja-JP", it: "it-IT", de: "de-DE" };
 
 function localizeOptions(options) {
   const language = options.language ?? "en";
