@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ParameterLabel } from "./components/ParameterTooltip";
+import DisclaimerPanel from "./components/DisclaimerPanel";
 import EmergencyKit from "./components/EmergencyKit";
+import ForecastLab from "./components/ForecastLab";
 import LiveAlerts from "./components/LiveAlerts";
 import RegionalSimulator from "./components/RegionalSimulator";
 import { createSeismicPdf } from "./lib/pdf-report.mjs";
@@ -15,7 +17,7 @@ type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
 type StructureKind = "building" | "house" | "garage" | "shed" | "skyscraper" | "warehouse" | "mall" | "bridge" | "tower" | "tunnel" | "parkingGarage" | "parkingStructure" | "carPark";
 type ViewAction = "in" | "out" | "fit";
 type ViewCommand = { id: number; action: ViewAction };
-type HelpTab = "guide" | "walkthrough" | "contact";
+type HelpTab = "guide" | "walkthrough" | "disclaimer" | "contact";
 type AccessibilityPreference = "largeText" | "highContrast" | "reduceMotion";
 
 declare global {
@@ -718,7 +720,7 @@ export default function Home() {
   const [elapsed, setElapsed] = useState(0);
   const [resetSignal, setResetSignal] = useState(0);
   const [viewCommand, setViewCommand] = useState<ViewCommand>({ id: 0, action: "fit" });
-  const [appMode, setAppMode] = useState<"structure" | "regional" | "alerts" | "kit">("alerts");
+  const [appMode, setAppMode] = useState<"structure" | "regional" | "alerts" | "forecast" | "kit">("alerts");
   const [activeTab, setActiveTab] = useState<"motion" | "structure">("motion");
   const [infoOpen, setInfoOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>("guide");
@@ -967,8 +969,9 @@ export default function Home() {
         <nav className="mode-nav" ref={modeNavRef} aria-label="Simulator mode">
           <button type="button" aria-current={appMode === "alerts" ? "page" : undefined} className={appMode === "alerts" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("alerts"); }}>Live alerts</button>
           <button type="button" aria-current={appMode === "regional" ? "page" : undefined} className={appMode === "regional" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("regional"); }}>Regional map</button>
-          <button type="button" aria-current={appMode === "kit" ? "page" : undefined} className={appMode === "kit" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("kit"); }}>Emergency kit</button>
+          <button type="button" aria-current={appMode === "forecast" ? "page" : undefined} className={appMode === "forecast" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("forecast"); }}>Forecast lab</button>
           <button type="button" aria-current={appMode === "structure" ? "page" : undefined} className={appMode === "structure" ? "active" : ""} onClick={() => setAppMode("structure")}>Structure lab</button>
+          <button type="button" aria-current={appMode === "kit" ? "page" : undefined} className={appMode === "kit" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("kit"); }}>Emergency kit</button>
         </nav>
         <label className="language-switcher">
           <span className="sr-only">Language</span>
@@ -1013,6 +1016,7 @@ export default function Home() {
             <nav className="help-tabs" aria-label="Help sections">
               <button className={helpTab === "guide" ? "active" : ""} onClick={() => setHelpTab("guide")}>How to use</button>
               <button className={helpTab === "walkthrough" ? "active" : ""} onClick={() => setHelpTab("walkthrough")}>Walkthrough</button>
+              <button className={helpTab === "disclaimer" ? "active" : ""} onClick={() => setHelpTab("disclaimer")}>Disclaimer</button>
               <button className={helpTab === "contact" ? "active" : ""} onClick={() => setHelpTab("contact")}>Contact</button>
             </nav>
 
@@ -1053,6 +1057,8 @@ export default function Home() {
                   <small>You can exit at any time with Escape.</small>
                 </section>
               )}
+
+              {helpTab === "disclaimer" && <DisclaimerPanel language={language} />}
 
               {helpTab === "contact" && (
                 <section className="contact-section">
@@ -1211,7 +1217,7 @@ export default function Home() {
 
           <p className="model-note">Indicative educational model · Simplified response spectrum · Values update continuously</p>
         </aside>
-      </section> : appMode === "regional" ? <RegionalSimulator language={language} /> : appMode === "kit" ? <EmergencyKit language={language} /> : <LiveAlerts language={language} />}
+      </section> : appMode === "forecast" ? <ForecastLab language={language} /> : appMode === "regional" ? <RegionalSimulator language={language} /> : appMode === "kit" ? <EmergencyKit language={language} /> : <LiveAlerts language={language} />}
       </div>
 
       {tourStep >= 0 && (

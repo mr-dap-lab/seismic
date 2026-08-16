@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import { disclaimerTranslations } from "./disclaimer-locales";
 import { extendedTranslations } from "./i18n-extended";
+import { forecastTranslations, type ForecastLocale } from "./forecast-locales";
 
 export type Language = "en" | "es" | "fr" | "yue" | "hi" | "ar" | "pt" | "ru" | "ja" | "it" | "de";
 
@@ -25,6 +27,23 @@ const rows: Row[] = [
   ["Structure lab", "Laboratorio estructural", "Laboratoire structurel", "結構實驗室", "संरचना प्रयोगशाला", "مختبر المنشآت"],
   ["Regional map", "Mapa regional", "Carte régionale", "區域地圖", "क्षेत्रीय मानचित्र", "الخريطة الإقليمية"],
   ["Live alerts", "Alertas en vivo", "Alertes en direct", "即時警報", "लाइव अलर्ट", "تنبيهات مباشرة"],
+  ["Forecast lab", "Laboratorio de pronóstico", "Laboratoire de prévision", "預測實驗室", "पूर्वानुमान प्रयोगशाला", "مختبر التنبؤ"],
+  ["Probabilistic earthquake forecast lab", "Laboratorio de pronóstico probabilístico de terremotos", "Laboratoire de prévision probabiliste des séismes", "概率地震預測實驗室", "संभाव्य भूकंप पूर्वानुमान प्रयोगशाला", "مختبر التنبؤ الاحتمالي بالزلازل"],
+  ["RESEARCH FORECAST", "PRONÓSTICO DE INVESTIGACIÓN", "PRÉVISION DE RECHERCHE", "研究預測", "अनुसंधान पूर्वानुमान", "تنبؤ بحثي"],
+  ["Probabilistic forecast lab", "Laboratorio de pronóstico probabilístico", "Laboratoire de prévision probabiliste", "概率預測實驗室", "संभाव्य पूर्वानुमान प्रयोगशाला", "مختبر التنبؤ الاحتمالي"],
+  ["Explore where earthquake occurrence is statistically more likely within a selected time window. This is a forecast of rates, not a prediction of the next earthquake.", "Explora dónde es estadísticamente más probable que ocurran terremotos dentro del intervalo elegido. Es un pronóstico de tasas, no una predicción del próximo terremoto.", "Explorez les zones où les séismes sont statistiquement plus probables pendant la période choisie. Il s’agit d’une prévision de taux, pas de la prédiction du prochain séisme.", "探索所選時段內地震統計上較可能發生嘅區域。呢個係發生率預測，唔係預測下一次地震。", "चुनी गई अवधि में भूकंप की सांख्यिकीय संभावना वाले क्षेत्रों को देखें। यह दरों का पूर्वानुमान है, अगले भूकंप की भविष्यवाणी नहीं।", "استكشف المناطق الأكثر احتمالًا إحصائيًا لوقوع الزلازل خلال الفترة المختارة. هذا توقع للمعدلات وليس تنبؤًا بالزلزال التالي."],
+  ["No exact earthquake prediction", "No existe una predicción exacta de terremotos", "Aucune prédiction exacte des séismes", "無法準確預測地震", "भूकंप की सटीक भविष्यवाणी संभव नहीं", "لا يوجد تنبؤ دقيق بالزلازل"],
+  ["Science cannot currently determine the exact time, place, and magnitude of the next major earthquake. Never use this educational model for emergency or life-safety decisions.", "La ciencia no puede determinar actualmente la hora, el lugar y la magnitud exactos del próximo gran terremoto. Nunca uses este modelo educativo para decisiones de emergencia o seguridad vital.", "La science ne peut actuellement déterminer l’heure, le lieu et la magnitude exacts du prochain séisme majeur. N’utilisez jamais ce modèle éducatif pour des décisions d’urgence ou de sécurité des personnes.", "科學目前無法確定下一次大地震嘅準確時間、地點同震級。切勿用呢個教育模型作緊急或生命安全決定。", "विज्ञान अभी अगले बड़े भूकंप का सटीक समय, स्थान और परिमाण तय नहीं कर सकता। आपातकाल या जीवन-सुरक्षा निर्णयों के लिए इस शैक्षिक मॉडल का उपयोग न करें।", "لا يستطيع العلم حاليًا تحديد وقت الزلزال الكبير التالي ومكانه وقوته بدقة. لا تستخدم هذا النموذج التعليمي لاتخاذ قرارات الطوارئ أو سلامة الأرواح."],
+  ["Target magnitude", "Magnitud objetivo", "Magnitude cible", "目標震級", "लक्षित परिमाण", "القوة المستهدفة"],
+  ["Forecast horizon", "Horizonte del pronóstico", "Horizon de prévision", "預測時段", "पूर्वानुमान अवधि", "أفق التوقع"],
+  ["Model components", "Componentes del modelo", "Composants du modèle", "模型組成", "मॉडल घटक", "مكونات النموذج"],
+  ["Aftershock clustering", "Agrupamiento de réplicas", "Regroupement des répliques", "餘震群聚", "आफ्टरशॉक समूह", "تجمع الهزات الارتدادية"],
+  ["Remote dynamic-stress proxy", "Indicador de esfuerzo dinámico remoto", "Indicateur de contrainte dynamique distante", "遠程動態應力代理", "दूरस्थ गतिशील-तनाव संकेतक", "مؤشر الإجهاد الديناميكي البعيد"],
+  ["Tidal envelope proxy", "Indicador de envolvente de mareas", "Indicateur d’enveloppe de marée", "潮汐包絡代理", "ज्वारीय आवरण संकेतक", "مؤشر غلاف المد والجزر"],
+  ["Refresh USGS catalog", "Actualizar catálogo del USGS", "Actualiser le catalogue USGS", "更新 USGS 目錄", "USGS कैटलॉग ताज़ा करें", "تحديث فهرس USGS"],
+  ["Methodology", "Metodología", "Méthodologie", "方法", "कार्यप्रणाली", "المنهجية"],
+  ["Scientific and safety limitation", "Limitación científica y de seguridad", "Limites scientifiques et de sécurité", "科學及安全限制", "वैज्ञानिक और सुरक्षा सीमा", "القيود العلمية والسلامة"],
+  ["Disclaimer", "Aviso legal", "Avertissement", "免責聲明", "अस्वीकरण", "إخلاء المسؤولية"],
   ["Emergency kit", "Kit de emergencia", "Kit d’urgence", "應急用品包", "आपातकालीन किट", "حقيبة الطوارئ"],
   ["Skip to main content", "Saltar al contenido principal", "Aller au contenu principal", "跳至主要內容", "मुख्य सामग्री पर जाएँ", "الانتقال إلى المحتوى الرئيسي"],
   ["Accessibility options", "Opciones de accesibilidad", "Options d’accessibilité", "無障礙選項", "सुलभता विकल्प", "خيارات إمكانية الوصول"],
@@ -426,6 +445,10 @@ const dictionaries = Object.fromEntries(LANGUAGES.map(({ code }) => {
   const dictionary = code in indices
     ? new Map(rows.map((row) => [row[0], row[indices[code as BaseLanguage]]]))
     : new Map(rows.map((row) => [row[0], extendedTranslations[row[0]]?.[extendedIndices[code as ExtendedLanguage]] ?? row[0]]));
+  if (code !== "en") {
+    Object.entries(forecastTranslations[code as ForecastLocale]).forEach(([source, translation]) => dictionary.set(source, translation));
+    Object.entries(disclaimerTranslations[code]).forEach(([source, translation]) => dictionary.set(source, translation));
+  }
   return [code, dictionary];
 })) as Record<Language, Map<string, string>>;
 const storyTerms: Record<Language, string> = { en: "$1-story", es: "$1 pisos", fr: "$1 étages", yue: "$1 層", hi: "$1 मंजिल", ar: "$1 طابق", pt: "$1 andares", ru: "$1 этажей", ja: "$1階", it: "$1 piani", de: "$1 Stockwerke" };
@@ -457,7 +480,7 @@ function translateTree(root: ParentNode, language: Language) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let node = walker.nextNode() as Text | null;
   while (node) {
-    if (!node.parentElement?.closest("script, style")) {
+    if (!node.parentElement?.closest('script, style, [data-i18n-managed="true"]')) {
       const current = node.nodeValue ?? "";
       const known = originalText.get(node);
       const lastRendered = renderedText.get(node);
@@ -474,6 +497,7 @@ function translateTree(root: ParentNode, language: Language) {
   }
   const elements = root instanceof Element ? [root, ...root.querySelectorAll("*")] : [...root.querySelectorAll("*")];
   for (const element of elements) {
+    if (element.closest('[data-i18n-managed="true"]')) continue;
     for (const attribute of ["aria-label", "title", "placeholder"]) {
       const current = element.getAttribute(attribute);
       if (!current) continue;

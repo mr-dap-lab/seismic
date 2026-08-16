@@ -1431,17 +1431,17 @@ export const extendedTranslations: Record<string, [string, string, string, strin
   ],
   "How to use": [
     "Como usar",
-    "Как использовать",
+    "Как пользоваться",
     "使用方法",
-    "Come usare",
-    "Wie zu verwenden"
+    "Guida all’uso",
+    "Anleitung"
   ],
   "Walkthrough": [
     "Passo a passo",
-    "Прохождение",
-    "ウォークスルー",
-    "Procedura dettagliata",
-    "Komplettlösung"
+    "Пошаговый тур",
+    "ガイドツアー",
+    "Visita guidata",
+    "Geführte Tour"
   ],
   "Contact": [
     "Contato",
@@ -2765,5 +2765,124 @@ export const extendedTranslations: Record<string, [string, string, string, strin
     "Hz 固有振動数",
     "Hz di frequenza naturale",
     "Hz Eigenfrequenz"
+  ],
+  "Forecast lab": [
+    "Laboratório de previsão",
+    "Лаборатория прогнозирования",
+    "予測ラボ",
+    "Laboratorio di previsione",
+    "Prognoselabor"
+  ],
+  "Probabilistic earthquake forecast lab": [
+    "Laboratório de previsão probabilística de terremotos",
+    "Лаборатория вероятностного прогноза землетрясений",
+    "確率論的地震予測ラボ",
+    "Laboratorio di previsione probabilistica dei terremoti",
+    "Labor für probabilistische Erdbebenprognosen"
+  ],
+  "RESEARCH FORECAST": [
+    "PREVISÃO DE PESQUISA",
+    "ИССЛЕДОВАТЕЛЬСКИЙ ПРОГНОЗ",
+    "研究予測",
+    "PREVISIONE DI RICERCA",
+    "FORSCHUNGSPROGNOSE"
+  ],
+  "Probabilistic forecast lab": [
+    "Laboratório de previsão probabilística",
+    "Лаборатория вероятностного прогнозирования",
+    "確率予測ラボ",
+    "Laboratorio di previsione probabilistica",
+    "Labor für probabilistische Prognosen"
+  ],
+  "Explore where earthquake occurrence is statistically more likely within a selected time window. This is a forecast of rates, not a prediction of the next earthquake.": [
+    "Explore onde a ocorrência de terremotos é estatisticamente mais provável na janela escolhida. Esta é uma previsão de taxas, não uma previsão do próximo terremoto.",
+    "Изучите, где землетрясения статистически более вероятны в выбранном интервале. Это прогноз частот, а не предсказание следующего землетрясения.",
+    "選択した期間内で地震の発生確率が統計的に高い場所を確認します。これは発生率の予測であり、次の地震の予知ではありません。",
+    "Esplora dove i terremoti sono statisticamente più probabili nell’intervallo scelto. È una previsione dei tassi, non la predizione del prossimo terremoto.",
+    "Erkunden Sie, wo Erdbeben im gewählten Zeitraum statistisch wahrscheinlicher sind. Dies ist eine Ratenprognose, keine Vorhersage des nächsten Erdbebens."
+  ],
+  "No exact earthquake prediction": [
+    "Não existe previsão exata de terremotos",
+    "Точное предсказание землетрясений невозможно",
+    "地震の正確な予知はできません",
+    "Non esiste una previsione esatta dei terremoti",
+    "Keine exakte Erdbebenvorhersage"
+  ],
+  "Science cannot currently determine the exact time, place, and magnitude of the next major earthquake. Never use this educational model for emergency or life-safety decisions.": [
+    "A ciência ainda não consegue determinar o momento, local e magnitude exatos do próximo grande terremoto. Nunca use este modelo educacional para decisões de emergência ou segurança de vida.",
+    "Наука пока не может определить точное время, место и магнитуду следующего крупного землетрясения. Не используйте эту учебную модель для решений по чрезвычайным ситуациям или безопасности жизни.",
+    "科学は次の大地震の正確な時刻、場所、規模を現在も特定できません。この教育モデルを緊急時や人命に関わる判断に使用しないでください。",
+    "La scienza non può ancora determinare l’ora, il luogo e la magnitudo esatti del prossimo grande terremoto. Non usare questo modello educativo per decisioni di emergenza o sicurezza delle persone.",
+    "Die Wissenschaft kann Zeitpunkt, Ort und Magnitude des nächsten großen Erdbebens derzeit nicht exakt bestimmen. Verwenden Sie dieses Lernmodell niemals für Notfall- oder Lebenssicherheitsentscheidungen."
+  ],
+  "Target magnitude": [
+    "Magnitude-alvo",
+    "Целевая магнитуда",
+    "対象マグニチュード",
+    "Magnitudo obiettivo",
+    "Zielmagnitude"
+  ],
+  "Forecast horizon": [
+    "Horizonte da previsão",
+    "Горизонт прогноза",
+    "予測期間",
+    "Orizzonte di previsione",
+    "Prognosehorizont"
+  ],
+  "Model components": [
+    "Componentes do modelo",
+    "Компоненты модели",
+    "モデル構成要素",
+    "Componenti del modello",
+    "Modellkomponenten"
+  ],
+  "Aftershock clustering": [
+    "Agrupamento de réplicas",
+    "Кластеризация афтершоков",
+    "余震クラスタリング",
+    "Raggruppamento delle repliche",
+    "Nachbeben-Clusterung"
+  ],
+  "Remote dynamic-stress proxy": [
+    "Indicador de tensão dinâmica remota",
+    "Индикатор удаленного динамического напряжения",
+    "遠隔動的応力プロキシ",
+    "Indicatore di stress dinamico remoto",
+    "Proxy für dynamische Fernspannung"
+  ],
+  "Tidal envelope proxy": [
+    "Indicador do envelope de maré",
+    "Индикатор приливной огибающей",
+    "潮汐包絡プロキシ",
+    "Indicatore dell’inviluppo mareale",
+    "Proxy der Gezeitenhüllkurve"
+  ],
+  "Refresh USGS catalog": [
+    "Atualizar catálogo do USGS",
+    "Обновить каталог USGS",
+    "USGSカタログを更新",
+    "Aggiorna il catalogo USGS",
+    "USGS-Katalog aktualisieren"
+  ],
+  "Methodology": [
+    "Metodologia",
+    "Методология",
+    "方法論",
+    "Metodologia",
+    "Methodik"
+  ],
+  "Scientific and safety limitation": [
+    "Limitação científica e de segurança",
+    "Научные ограничения и безопасность",
+    "科学的・安全上の制限",
+    "Limiti scientifici e di sicurezza",
+    "Wissenschaftliche und sicherheitsbezogene Einschränkung"
+  ],
+  "Disclaimer": [
+    "Aviso legal",
+    "Отказ от ответственности",
+    "免責事項",
+    "Esclusione di responsabilità",
+    "Haftungsausschluss"
   ]
 };

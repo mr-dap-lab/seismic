@@ -20,10 +20,15 @@ test("builds the production-ready SEISMIC application", async () => {
   assert.match(page, /RegionalSimulator/);
 });
 
-test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, and Vercel configuration", async () => {
-  const [page, regional, liveAlerts, emergencyKit, tooltip, i18n, i18nExtended, pdf, css, packageJson, vercel] = await Promise.all([
+test("wires PDF, geolocated regional mapping, probabilistic forecasting, live USGS alerts, parameter help, and Vercel configuration", async () => {
+  const [page, regional, forecast, forecastRoute, disclaimer, forecastLocales, disclaimerLocales, liveAlerts, emergencyKit, tooltip, i18n, i18nExtended, pdf, css, packageJson, vercel] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/RegionalSimulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/ForecastLab.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/forecast-catalog/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/DisclaimerPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/forecast-locales.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/disclaimer-locales.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/LiveAlerts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/EmergencyKit.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ParameterTooltip.tsx", import.meta.url), "utf8"),
@@ -45,6 +50,9 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(page, /RegionalSimulator language=\{language\}/);
   assert.match(page, /LiveAlerts language=\{language\}/);
   assert.match(page, /EmergencyKit language=\{language\}/);
+  assert.match(page, /ForecastLab language=\{language\}/);
+  assert.match(page, /DisclaimerPanel language=\{language\}/);
+  assert.match(page, /helpTab === "disclaimer"/);
   assert.match(page, /className="skip-link"/);
   assert.match(page, /Accessibility options/);
   assert.match(page, /seismic-accessibility/);
@@ -61,12 +69,13 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.doesNotMatch(page, /className="linkedin-link"/);
   assert.match(page, />Emergency kit<\/button>/);
   assert.match(page, /appMode === "alerts"/);
-  assert.match(page, /useState<"structure" \| "regional" \| "alerts" \| "kit">\("alerts"\)/);
+  assert.match(page, /useState<"structure" \| "regional" \| "alerts" \| "forecast" \| "kit">\("alerts"\)/);
   assert.match(page, /Live alerts/);
   assert.ok(page.indexOf(">Live alerts</button>") < page.indexOf(">Regional map</button>"));
-  assert.ok(page.indexOf(">Regional map</button>") < page.indexOf(">Emergency kit</button>"));
-  assert.ok(page.indexOf(">Emergency kit</button>") < page.indexOf(">Structure lab</button>"));
+  assert.ok(page.indexOf(">Regional map</button>") < page.indexOf(">Forecast lab</button>"));
+  assert.ok(page.indexOf(">Forecast lab</button>") < page.indexOf(">Structure lab</button>"));
   assert.ok(page.indexOf(">Regional map</button>") < page.indexOf(">Structure lab</button>"));
+  assert.ok(page.indexOf(">Structure lab</button>") < page.indexOf(">Emergency kit</button>"));
   assert.match(i18n, /"en" \| "es" \| "fr" \| "yue" \| "hi" \| "ar" \| "pt" \| "ru" \| "ja" \| "it" \| "de"/);
   assert.match(i18n, /Español/);
   assert.match(i18n, /Français/);
@@ -78,7 +87,7 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(i18n, /日本語/);
   assert.match(i18n, /Italiano/);
   assert.match(i18n, /Deutsch/);
-  assert.equal((i18nExtended.match(/^  ".*": \[$/gm) ?? []).length, 395);
+  assert.equal((i18nExtended.match(/^  ".*": \[$/gm) ?? []).length, 412);
   assert.match(i18nExtended, /Kit de emergência/);
   assert.match(i18nExtended, /Аварийный комплект/);
   assert.match(i18nExtended, /緊急キット/);
@@ -154,6 +163,36 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(liveAlerts, /role="status" aria-live="polite" aria-atomic="true"/);
   assert.match(liveAlerts, /WorldEarthquakeMap events=\{filteredEvents\}/);
   assert.match(liveAlerts, /Worldwide earthquake map/);
+  assert.match(forecastRoute, /earthquake\.usgs\.gov\/fdsnws\/event\/1\/query/);
+  assert.match(forecastRoute, /minmagnitude: "5"/);
+  assert.match(forecastRoute, /revalidate: 3600/);
+  assert.match(forecast, /const ETAS = \{ alpha: 0\.8, c: 0\.05, p: 1\.1, q: 1\.5/);
+  assert.match(forecast, /1 - Math\.exp\(-expected\)/);
+  assert.match(forecast, /10 \*\* \(-\(targetMagnitude - catalog\.minimumCatalogMagnitude\)\)/);
+  assert.match(forecast, /Remote dynamic-stress proxy/);
+  assert.match(forecast, /Tidal envelope proxy/);
+  assert.match(forecast, /No exact earthquake prediction/);
+  assert.match(forecast, /cannot predict the exact next earthquake/);
+  assert.match(forecast, /USGS on earthquake prediction/);
+  assert.match(forecast, /features: cells\.map/);
+  assert.doesNotMatch(forecast, /features: cells\.slice/);
+  assert.match(forecast, /FORECAST_COVERAGE_REGIONS/);
+  assert.match(forecast, /forecastMarkerCells\(cells\)/);
+  assert.match(forecast, /dataset\.coverageRegion = forecastCoverageRegion/);
+  assert.doesNotMatch(forecast, /markersRef\.current = cells\.slice/);
+  assert.match(forecast, /event\.magnitude >= catalog\.minimumCatalogMagnitude/);
+  assert.doesNotMatch(forecast, /magnitudeSeedThreshold/);
+  assert.match(forecast, /Math\.sqrt\(cell\.probability \/ 0\.5\)/);
+  assert.match(forecast, /new Popup/);
+  assert.match(forecast, /Baseline spatial share/);
+  assert.match(forecastLocales, /FORECAST_TRANSLATION_SOURCE_COUNT = sources\.length/);
+  assert.match(forecastLocales, /La magnitud mínima que se pronostica/);
+  assert.match(forecastLocales, /予測対象の最小マグニチュード/);
+  assert.match(disclaimer, /This software does not predict earthquakes/);
+  assert.match(disclaimer, /no component of that toolkit was validated against the live USGS catalog/i);
+  assert.match(disclaimerLocales, /DISCLAIMER_TRANSLATION_SOURCE_COUNT = sources\.length/);
+  assert.match(disclaimerLocales, /Este software no predice terremotos/);
+  assert.match(disclaimerLocales, /このソフトウェアは地震を予知しません/);
   assert.match(emergencyKit, /const STORAGE_KEY = "seismic-emergency-kit"/);
   assert.match(emergencyKit, /Emergency kit checklist/);
   assert.match(emergencyKit, /KIT_CATEGORIES/);
@@ -172,6 +211,11 @@ test("wires PDF, geolocated regional mapping, live USGS alerts, parameter help, 
   assert.match(css, /min-width: 148px/);
   assert.match(css, /\.mode-nav \{ position: absolute/);
   assert.match(css, /\.live-alerts-shell/);
+  assert.match(css, /\.forecast-shell/);
+  assert.match(css, /\.forecast-warning/);
+  assert.match(css, /\.forecast-map/);
+  assert.match(css, /\.forecast-popup/);
+  assert.match(css, /\.disclaimer-panel/);
   assert.match(css, /\.alerts-event-list/);
   assert.match(css, /\.alerts-world-map-section/);
   assert.match(css, /\.alerts-world-map-stage/);
