@@ -40,6 +40,10 @@ type ForecastCell = {
 const R_EARTH_KM = 6371.0088;
 const GRID_STEP = 5;
 const ETAS = { alpha: 0.8, c: 0.05, p: 1.1, q: 1.5, d0: 50, gamma: 0.4 };
+const REMOTE_STRESS_WEIGHTS = [0, 0.01, 0.03, 0.05] as const;
+const TIDAL_WEIGHTS = [0, 0.0025, 0.005, 0.01] as const;
+const EARTH_CYCLE_WEIGHTS = [0, 0.001, 0.0025, 0.005] as const;
+const SHOW_EXPERIMENTAL_FORECAST_CONTROLS = false;
 
 const FORECAST_COVERAGE_REGIONS = [
   { id: "north-america", contains: ({ latitude, longitude }: ForecastCell) => latitude >= 25 && latitude <= 85 && longitude >= -170 && longitude <= -50 },
@@ -114,6 +118,17 @@ function moonTideEnvelope(now: number) {
   const days = (now - reference) / 86_400_000;
   const phase = ((days % synodicDays) + synodicDays) % synodicDays / synodicDays;
   return { phase, envelope: Math.cos(4 * Math.PI * phase) };
+}
+
+function earthCycleEnvelope(now: number) {
+  const date = new Date(now);
+  const year = date.getUTCFullYear();
+  const dayStart = Date.UTC(year, date.getUTCMonth(), date.getUTCDate());
+  const yearStart = Date.UTC(year, 0, 1);
+  const nextYearStart = Date.UTC(year + 1, 0, 1);
+  const rotation = Math.cos(2 * Math.PI * ((now - dayStart) / 86_400_000));
+  const revolution = Math.cos(2 * Math.PI * ((now - yearStart) / (nextYearStart - yearStart)));
+  return { rotation, revolution, envelope: (rotation + revolution) / 2 };
 }
 
 function forecastPoints(cells: ForecastCell[], selectedId: string | null): FeatureCollection<Point> {
@@ -403,8 +418,9 @@ export default function ForecastLab({ language }: { language: Language }) {
   const [targetMagnitude, setTargetMagnitude] = useState(6);
   const [horizonDays, setHorizonDays] = useState(7);
   const [aftershockEnabled, setAftershockEnabled] = useState(true);
-  const [remoteEnabled, setRemoteEnabled] = useState(false);
-  const [tideEnabled, setTideEnabled] = useState(false);
+  const [remoteStressWeight, setRemoteStressWeight] = useState(0);
+  const [tidalWeight, setTidalWeight] = useState(0);
+  const [earthCycleWeight, setEarthCycleWeight] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [refreshSignal, setRefreshSignal] = useState(0);
 
@@ -459,7 +475,7 @@ export default function ForecastLab({ language }: { language: Language }) {
             const productivity = 10 ** (ETAS.alpha * (event.magnitude - catalog.minimumCatalogMagnitude));
             triggerValue += productivity * (ageDays + ETAS.c) ** -ETAS.p * (1 + (distance / spatialScale) ** 2) ** -ETAS.q;
           }
-          if (remoteEnabled && event.magnitude >= 7 && ageDays <= 7) {
+          if (remoteStressWeight > 0 && event.magnitude >= 7 && ageDays <= 7) {
             remoteValue += 10 ** (0.6 * (event.magnitude - 7)) * Math.exp(-ageDays / 2) / (1 + (distance / 4000) ** 2);
           }
         }
@@ -476,16 +492,18 @@ export default function ForecastLab({ language }: { language: Language }) {
     let combined = bgShare.map((value, index) => aftershockEnabled && triggerShare[index] > 0
       ? value * 0.7 + triggerShare[index] * 0.3
       : value);
-    if (remoteEnabled && remoteShare.some((value) => value > 0)) {
-      combined = combined.map((value, index) => value * 0.97 + remoteShare[index] * 0.03);
+    if (remoteStressWeight > 0 && remoteShare.some((value) => value > 0)) {
+      combined = combined.map((value, index) => value * (1 - remoteStressWeight) + remoteShare[index] * remoteStressWeight);
     }
     combined = normalize(combined);
 
     const catalogRate = events.filter((event) => event.magnitude >= catalog.minimumCatalogMagnitude).length / catalog.sourceWindowDays;
     const magnitudeScaledRate = catalogRate * 10 ** (-(targetMagnitude - catalog.minimumCatalogMagnitude));
     const tide = moonTideEnvelope(now);
-    const tideMultiplier = tideEnabled ? 1 + 0.01 * tide.envelope : 1;
-    const globalRate = magnitudeScaledRate * tideMultiplier;
+    const earthCycle = earthCycleEnvelope(now);
+    const tideMultiplier = 1 + tidalWeight * tide.envelope;
+    const earthCycleMultiplier = 1 + earthCycleWeight * earthCycle.envelope;
+    const globalRate = magnitudeScaledRate * tideMultiplier * earthCycleMultiplier;
     const modeledCells: ForecastCell[] = cells.map((cell, index) => {
       const expected = globalRate * combined[index] * horizonDays;
       return {
@@ -507,12 +525,22 @@ export default function ForecastLab({ language }: { language: Language }) {
       recentLarge: events.filter((event) => event.magnitude >= 7 && now - event.time <= 30 * 86_400_000).sort((a, b) => b.time - a.time),
       end: new Date(now + horizonDays * 86_400_000),
     };
-  }, [aftershockEnabled, catalog, horizonDays, remoteEnabled, targetMagnitude, tideEnabled]);
+  }, [aftershockEnabled, catalog, earthCycleWeight, horizonDays, remoteStressWeight, targetMagnitude, tidalWeight]);
 
   const effectiveSelectedId = selectedId && model?.cells.some((cell) => cell.id === selectedId) ? selectedId : model?.top[0]?.id ?? null;
   const selected = model?.cells.find((cell) => cell.id === effectiveSelectedId) ?? model?.top[0] ?? null;
   const percent = (value: number) => new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: value < 0.01 ? 2 : 1, maximumFractionDigits: value < 0.01 ? 2 : 1 }).format(value);
   const number = (value: number, digits = 2) => new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(value);
+  const weightPercent = (value: number) => new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 2 }).format(value);
+  const resetParameters = () => {
+    setTargetMagnitude(6);
+    setHorizonDays(7);
+    setAftershockEnabled(true);
+    setRemoteStressWeight(0);
+    setTidalWeight(0);
+    setEarthCycleWeight(0);
+    setSelectedId(null);
+  };
 
   return (
     <section className="forecast-shell" data-i18n-managed="true" aria-label={t("Probabilistic earthquake forecast lab")}>
@@ -542,14 +570,35 @@ export default function ForecastLab({ language }: { language: Language }) {
 
           <fieldset className="forecast-options">
             <legend>{t("Model components")}</legend>
-            <label><input type="checkbox" checked={aftershockEnabled} onChange={(event) => setAftershockEnabled(event.target.checked)} /><span><strong>{t("Aftershock clustering")}</strong><small>{t("ETAS-style time and distance decay from recent earthquakes.")}</small></span></label>
-            <label><input type="checkbox" checked={remoteEnabled} onChange={(event) => setRemoteEnabled(event.target.checked)} /><span><strong>{t("Remote dynamic-stress proxy")}</strong><small>{t("Experimental, capped influence from recent M7+ earthquakes at global distances.")}</small></span></label>
-            <label><input type="checkbox" checked={tideEnabled} onChange={(event) => setTideEnabled(event.target.checked)} /><span><strong>{t("Tidal envelope proxy")}</strong><small>{t("Experimental spring–neap modulation capped at plus or minus one percent.")}</small></span></label>
+            <label className="forecast-option-toggle"><input type="checkbox" checked={aftershockEnabled} onChange={(event) => setAftershockEnabled(event.target.checked)} /><span><strong>{t("Aftershock clustering")}</strong><small>{t("ETAS-style time and distance decay from recent earthquakes.")}</small></span></label>
+            {SHOW_EXPERIMENTAL_FORECAST_CONTROLS && <>
+              <label className="forecast-weight-field">
+                <ParameterLabel label={t("Remote dynamic stress")} description={t("Distant earthquakes can trigger mostly small, short-lived activity, but this proxy has not been prospectively validated.")} />
+                <select value={remoteStressWeight} onChange={(event) => setRemoteStressWeight(Number(event.target.value))}>
+                  {REMOTE_STRESS_WEIGHTS.map((value) => <option value={value} key={value}>{value === 0 ? `${t("OFF")} · ` : ""}{weightPercent(value)}</option>)}
+                </select>
+              </label>
+              <label className="forecast-weight-field">
+                <ParameterLabel label={t("Gravity and tidal pull")} description={t("Some fault types show weak correlations; tides do not reliably predict earthquakes.")} />
+                <select value={tidalWeight} onChange={(event) => setTidalWeight(Number(event.target.value))}>
+                  {TIDAL_WEIGHTS.map((value) => <option value={value} key={value}>{value === 0 ? `${t("OFF")} · ` : ""}{weightPercent(value)}</option>)}
+                </select>
+              </label>
+              <label className="forecast-weight-field">
+                <ParameterLabel label={`${t("Earth rotation")} / ${t("revolution")}`} description={t("Time-of-day and annual cycles are tracked as diagnostics only because they have no demonstrated global predictive skill.")} />
+                <select value={earthCycleWeight} onChange={(event) => setEarthCycleWeight(Number(event.target.value))}>
+                  {EARTH_CYCLE_WEIGHTS.map((value) => <option value={value} key={value}>{value === 0 ? `${t("OFF")} · ` : ""}{weightPercent(value)}</option>)}
+                </select>
+              </label>
+            </>}
           </fieldset>
 
-          <button className="forecast-refresh" type="button" onClick={() => { setLoading(true); setError(null); setRefreshSignal((value) => value + 1); }} disabled={loading}>
-            {loading ? t("Updating catalog...") : t("Refresh USGS catalog")}
-          </button>
+          <div className="forecast-actions">
+            <button className="forecast-refresh" type="button" onClick={() => { setLoading(true); setError(null); setRefreshSignal((value) => value + 1); }} disabled={loading}>
+              {loading ? t("Updating catalog...") : t("Refresh USGS catalog")}
+            </button>
+            {SHOW_EXPERIMENTAL_FORECAST_CONTROLS && <button className="forecast-reset" type="button" onClick={resetParameters}>{t("Reset")}</button>}
+          </div>
         </div>
 
         <div className="forecast-catalog-status" role="status" aria-live="polite">
@@ -609,9 +658,9 @@ export default function ForecastLab({ language }: { language: Language }) {
             <div className="forecast-section-heading"><div><span>{t("MODEL EVIDENCE")}</span><h2>{t("What affects this forecast")}</h2></div></div>
             <FactorRow name={t("Smoothed seismicity")} status={t("PRIMARY")} detail={t("Historical spatial rate and Gutenberg–Richter scaling.")} tone="strong" />
             <FactorRow name={t("Aftershock clustering")} status={aftershockEnabled ? t("ACTIVE") : t("OFF")} detail={t("Short-term local triggering; strongest validated time-dependent component.")} tone={aftershockEnabled ? "strong" : "muted"} />
-            <FactorRow name={t("Remote dynamic stress")} status={remoteEnabled ? t("EXPERIMENTAL") : t("OFF")} detail={t("Distant earthquakes can trigger mostly small, short-lived activity, but this proxy has not been prospectively validated.")} tone="research" />
-            <FactorRow name={t("Gravity and tidal pull")} status={tideEnabled ? t("EXPERIMENTAL") : t("0% DEFAULT WEIGHT")} detail={t("Some fault types show weak correlations; tides do not reliably predict earthquakes.")} tone="research" />
-            <FactorRow name={t("Earth rotation") + " / " + t("revolution")} status={t("0% WEIGHT")} detail={t("Time-of-day and annual cycles are tracked as diagnostics only because they have no demonstrated global predictive skill.")} />
+            <FactorRow name={t("Remote dynamic stress")} status={remoteStressWeight > 0 ? `${t("EXPERIMENTAL")} · ${weightPercent(remoteStressWeight)}` : t("OFF")} detail={t("Distant earthquakes can trigger mostly small, short-lived activity, but this proxy has not been prospectively validated.")} tone="research" />
+            <FactorRow name={t("Gravity and tidal pull")} status={tidalWeight > 0 ? `${t("EXPERIMENTAL")} · ${weightPercent(tidalWeight)}` : t("0% DEFAULT WEIGHT")} detail={t("Some fault types show weak correlations; tides do not reliably predict earthquakes.")} tone="research" />
+            <FactorRow name={t("Earth rotation") + " / " + t("revolution")} status={earthCycleWeight > 0 ? `${t("EXPERIMENTAL")} · ${weightPercent(earthCycleWeight)}` : t("0% WEIGHT")} detail={t("Time-of-day and annual cycles are tracked as diagnostics only because they have no demonstrated global predictive skill.")} tone={earthCycleWeight > 0 ? "research" : "muted"} />
             <p className="forecast-research-note"><strong>{t("Research rule:")}</strong> {t("Experimental factors should remain excluded unless walk-forward testing shows positive information gain beyond the baseline.")}</p>
           </section>
         </div>

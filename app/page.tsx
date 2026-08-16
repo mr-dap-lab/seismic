@@ -973,36 +973,38 @@ export default function Home() {
           <button type="button" aria-current={appMode === "structure" ? "page" : undefined} className={appMode === "structure" ? "active" : ""} onClick={() => setAppMode("structure")}>Structure lab</button>
           <button type="button" aria-current={appMode === "kit" ? "page" : undefined} className={appMode === "kit" ? "active" : ""} onClick={() => { setTourStep(-1); setAppMode("kit"); }}>Emergency kit</button>
         </nav>
-        <label className="language-switcher">
-          <span className="sr-only">Language</span>
-          <select value={language} onChange={(event) => changeLanguage(event.target.value as Language)} aria-label="Language">
-            {LANGUAGES.map((item) => <option key={item.code} value={item.code}>{item.nativeName}</option>)}
-          </select>
-        </label>
-        <div className="accessibility-menu" ref={accessibilityPanelRef}>
-          <button
-            className="accessibility-trigger"
-            type="button"
-            aria-expanded={accessibilityOpen}
-            aria-controls="accessibility-panel"
-            onClick={() => setAccessibilityOpen((open) => !open)}
-          >
-            <span aria-hidden="true">♿</span><span className="sr-only">Accessibility options</span>
-          </button>
-          {accessibilityOpen && (
-            <section className="accessibility-panel" id="accessibility-panel" aria-label="Accessibility options">
-              <div><span className="eyebrow">ACCESSIBILITY</span><h2>Display and motion</h2></div>
-              <p>Choose the reading preferences that work best for you. Settings are saved on this device.</p>
-              <label><input type="checkbox" checked={largeText} onChange={(event) => updateAccessibility("largeText", event.target.checked)} /><span><strong>Larger text</strong><small>Increase text throughout every application tab.</small></span></label>
-              <label><input type="checkbox" checked={highContrast} onChange={(event) => updateAccessibility("highContrast", event.target.checked)} /><span><strong>Enhanced contrast</strong><small>Strengthen text, borders, controls, and focus indicators.</small></span></label>
-              <label><input type="checkbox" checked={reduceMotion} onChange={(event) => updateAccessibility("reduceMotion", event.target.checked)} /><span><strong>Reduce motion</strong><small>Pause the structural animation and remove decorative movement.</small></span></label>
-              <div className="accessibility-note"><strong>Hearing and screen-reader access</strong><p>Alerts and simulation results are presented as text and visuals; no audio is required. Keyboard navigation, descriptive labels, and live status messages are available throughout the app.</p></div>
-            </section>
-          )}
-        </div>
-        <div className="topbar-status">
-          <span className="live-dot" /> LIVE MODEL
-          <button className="icon-button has-tooltip" type="button" onClick={() => setInfoOpen(true)} aria-label="Open help center">?<span className="tooltip-bubble" aria-hidden="true">Help, walkthrough &amp; contact</span></button>
+        <div className="topbar-tools">
+          <label className="language-switcher">
+            <span className="sr-only">Language</span>
+            <select value={language} onChange={(event) => changeLanguage(event.target.value as Language)} aria-label="Language">
+              {LANGUAGES.map((item) => <option key={item.code} value={item.code}>{item.nativeName}</option>)}
+            </select>
+          </label>
+          <div className="accessibility-menu" ref={accessibilityPanelRef}>
+            <button
+              className="accessibility-trigger"
+              type="button"
+              aria-expanded={accessibilityOpen}
+              aria-controls="accessibility-panel"
+              onClick={() => setAccessibilityOpen((open) => !open)}
+            >
+              <span aria-hidden="true">♿</span><span className="sr-only">Accessibility options</span>
+            </button>
+            {accessibilityOpen && (
+              <section className="accessibility-panel" id="accessibility-panel" aria-label="Accessibility options">
+                <div><span className="eyebrow">ACCESSIBILITY</span><h2>Display and motion</h2></div>
+                <p>Choose the reading preferences that work best for you. Settings are saved on this device.</p>
+                <label><input type="checkbox" checked={largeText} onChange={(event) => updateAccessibility("largeText", event.target.checked)} /><span><strong>Larger text</strong><small>Increase text throughout every application tab.</small></span></label>
+                <label><input type="checkbox" checked={highContrast} onChange={(event) => updateAccessibility("highContrast", event.target.checked)} /><span><strong>Enhanced contrast</strong><small>Strengthen text, borders, controls, and focus indicators.</small></span></label>
+                <label><input type="checkbox" checked={reduceMotion} onChange={(event) => updateAccessibility("reduceMotion", event.target.checked)} /><span><strong>Reduce motion</strong><small>Pause the structural animation and remove decorative movement.</small></span></label>
+                <div className="accessibility-note"><strong>Hearing and screen-reader access</strong><p>Alerts and simulation results are presented as text and visuals; no audio is required. Keyboard navigation, descriptive labels, and live status messages are available throughout the app.</p></div>
+              </section>
+            )}
+          </div>
+          <div className="topbar-status">
+            <span className="live-dot" /> LIVE MODEL
+            <button className="icon-button has-tooltip" type="button" onClick={() => setInfoOpen(true)} aria-label="Open help center">?<span className="tooltip-bubble" aria-hidden="true">Help, walkthrough &amp; contact</span></button>
+          </div>
         </div>
       </header>
 
