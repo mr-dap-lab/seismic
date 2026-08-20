@@ -3,9 +3,10 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Map, NavigationControl, ScaleControl, type GeoJSONSource, type StyleSpecification } from "maplibre-gl";
 import type { Feature, Point, Polygon } from "geojson";
-import { createRegionalPdf } from "../lib/pdf-report.mjs";
+import { cancelPdfDelivery, createRegionalPdf, preparePdfDelivery } from "../lib/pdf-report.mjs";
 import { translateText, type Language } from "../lib/i18n";
 import { ParameterLabel } from "./ParameterTooltip";
+import { observeElementResize } from "../lib/browser-compat";
 
 type SiteClass = "A" | "B" | "C" | "D" | "E" | "F";
 type Coordinate = { lat: number; lng: number };
@@ -193,6 +194,7 @@ export default function RegionalSimulator({ language }: { language: Language }) 
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState("");
   const [placingEpicenter, setPlacingEpicenter] = useState(false);
   const [overlayGeometry, setOverlayGeometry] = useState<OverlayGeometry | null>(null);
 
@@ -215,7 +217,7 @@ export default function RegionalSimulator({ language }: { language: Language }) 
         zoom: 8,
         pitch: 0,
         bearing: 0,
-        canvasContextAttributes: { preserveDrawingBuffer: true },
+        canvasContextAttributes: { preserveDrawingBuffer: true, antialias: false, powerPreference: "low-power" },
       });
     } catch {
       window.setTimeout(() => setMapError("The map could not start. WebGL may be unavailable in this browser."), 0);
@@ -228,8 +230,7 @@ export default function RegionalSimulator({ language }: { language: Language }) 
       const scale = map.getContainer().querySelector<HTMLElement>(".maplibregl-ctrl-scale");
       if (scale) scale.style.fontSize = "12px";
     });
-    const resizeObserver = new ResizeObserver(() => map.resize());
-    resizeObserver.observe(mapRef.current);
+    const stopObservingResize = observeElementResize(mapRef.current, () => map.resize());
     const updateOverlay = () => setOverlayGeometry(projectImpactGeometry(map, centerRef.current, radiiRef.current));
     overlayUpdateRef.current = updateOverlay;
     map.on("move", updateOverlay);
@@ -273,7 +274,7 @@ export default function RegionalSimulator({ language }: { language: Language }) 
     });
 
     return () => {
-      resizeObserver.disconnect();
+      stopObservingResize();
       mapInstanceRef.current = null;
       overlayUpdateRef.current = () => undefined;
       map.remove();
@@ -306,8 +307,8 @@ export default function RegionalSimulator({ language }: { language: Language }) 
     setSearchError("");
     setSearchResults([]);
     try {
-      const params = new URLSearchParams({ q: searchTerm, format: "jsonv2", addressdetails: "1", limit: "5" });
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, { headers: { "Accept-Language": navigator.language } });
+      const params = new URLSearchParams({ q: searchTerm });
+      const response = await fetch(`/api/geocode?${params.toString()}`, { headers: { "Accept-Language": navigator.language } });
       if (!response.ok) throw new Error("search failed");
       const results = await response.json() as SearchResult[];
       setSearchResults(results);
@@ -358,7 +359,9 @@ export default function RegionalSimulator({ language }: { language: Language }) 
   const downloadRegionalReport = async () => {
     const map = mapInstanceRef.current;
     if (!map || reportBusy) return;
+    const deliveryWindow = preparePdfDelivery();
     setReportBusy(true);
+    setReportError("");
     try {
       if (!map.loaded()) {
         await Promise.race([
@@ -387,7 +390,10 @@ export default function RegionalSimulator({ language }: { language: Language }) 
         moderateRadius: radii.mid,
         lowRadius: radii.low,
         mapImage,
-      }, { language, translate: t });
+      }, { language, translate: t, deliveryWindow });
+    } catch {
+      cancelPdfDelivery(deliveryWindow);
+      setReportError(t("The PDF could not be generated in this browser. Open the site in Safari or Chrome and try again."));
     } finally {
       setReportBusy(false);
     }
@@ -458,7 +464,7 @@ export default function RegionalSimulator({ language }: { language: Language }) 
         <div className="regional-metrics"><div><span>Epicenter PGA</span><strong>{centerMotion.pga.toFixed(3)} g</strong></div><div><span>Outer-edge PGA</span><strong>{edgeMotion.pga.toFixed(3)} g</strong></div><div><span>Modeled area</span><strong>{Math.round(Math.PI * radii.low ** 2).toLocaleString()} km²</strong></div><div><span>Site amplification</span><strong>× {SITE_FACTORS[siteClass].toFixed(2)}</strong></div></div>
         <h3>Distance profile</h3>
         <div className="distance-profile">{samples.map((sample) => <div key={sample.distance}><span>{Math.round(sample.distance)} km</span><i><b style={{ width: `${sample.pga / Math.max(centerMotion.pga, 0.01) * 100}%` }} /></i><strong>{sample.pga.toFixed(3)} g</strong></div>)}</div>
-        <section className="report-section"><button className="report-button has-tooltip tooltip-top" type="button" onClick={downloadRegionalReport} disabled={reportBusy || !mapReady}><span>⇩</span>{t(reportBusy ? "Creating PDF…" : "Download regional PDF")}<span className="tooltip-bubble" aria-hidden="true">{t("Export the regional map, impact rings, inputs, and results as PDF")}</span></button><p>Includes the current map, impact rings, inputs, calculated results, OpenStreetMap attribution, and professional-use disclaimer.</p></section>
+        <section className="report-section"><button className="report-button has-tooltip tooltip-top" type="button" onClick={downloadRegionalReport} disabled={reportBusy || !mapReady}><span>⇩</span>{t(reportBusy ? "Creating PDF…" : "Download regional PDF")}<span className="tooltip-bubble" aria-hidden="true">{t("Export the regional map, impact rings, inputs, and results as PDF")}</span></button><p>Includes the current map, impact rings, inputs, calculated results, OpenStreetMap attribution, and professional-use disclaimer.</p>{reportError && <p className="report-error" role="alert">{reportError}</p>}</section>
         <div className="regional-disclaimer"><strong>Screening model only</strong><p>Results use simplified attenuation and uniform site assumptions. They are not a hazard map, emergency forecast, or substitute for official seismic, geotechnical, or engineering analysis.</p></div>
       </aside>
     </section>

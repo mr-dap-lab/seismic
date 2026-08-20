@@ -1513,6 +1513,48 @@ export const extendedTranslations: Record<string, [string, string, string, strin
     "Connettiti con Diego Avella",
     "Vernetzen Sie sich mit Diego Avella"
   ],
+  "Open the SEISMIC repository on GitHub": [
+    "Abrir o repositório do SEISMIC no GitHub",
+    "Открыть репозиторий SEISMIC на GitHub",
+    "GitHubでSEISMICリポジトリを開く",
+    "Apri il repository SEISMIC su GitHub",
+    "SEISMIC-Repository auf GitHub öffnen"
+  ],
+  "Embedded browser detected": [
+    "Navegador incorporado detectado",
+    "Обнаружен встроенный браузер",
+    "アプリ内ブラウザーを検出しました",
+    "Rilevato browser integrato",
+    "Eingebetteter Browser erkannt"
+  ],
+  "PDFs will open in a viewer or share sheet. For the most reliable maps and downloads, use your browser menu to open SEISMIC in Safari or Chrome.": [
+    "Os PDFs serão abertos em um visualizador ou menu de compartilhamento. Para mapas e downloads mais confiáveis, use o menu do navegador para abrir o SEISMIC no Safari ou Chrome.",
+    "PDF откроется в средстве просмотра или меню общего доступа. Для надежной работы карт и загрузок откройте SEISMIC в Safari или Chrome через меню браузера.",
+    "PDFはビューアまたは共有シートで開きます。地図とダウンロードを安定して利用するには、ブラウザーメニューからSEISMICをSafariまたはChromeで開いてください。",
+    "I PDF si apriranno in un visualizzatore o nel menu di condivisione. Per mappe e download più affidabili, usa il menu del browser per aprire SEISMIC in Safari o Chrome.",
+    "PDFs werden in einer Ansicht oder im Teilen-Menü geöffnet. Für zuverlässige Karten und Downloads öffnen Sie SEISMIC über das Browsermenü in Safari oder Chrome."
+  ],
+  "Open SEISMIC in browser": [
+    "Abrir o SEISMIC no navegador",
+    "Открыть SEISMIC в браузере",
+    "SEISMICをブラウザーで開く",
+    "Apri SEISMIC nel browser",
+    "SEISMIC im Browser öffnen"
+  ],
+  "The PDF could not be generated in this browser. Open the site in Safari or Chrome and try again.": [
+    "Não foi possível gerar o PDF neste navegador. Abra o site no Safari ou Chrome e tente novamente.",
+    "Не удалось создать PDF в этом браузере. Откройте сайт в Safari или Chrome и повторите попытку.",
+    "このブラウザーではPDFを生成できませんでした。SafariまたはChromeでサイトを開き、もう一度お試しください。",
+    "Impossibile generare il PDF in questo browser. Apri il sito in Safari o Chrome e riprova.",
+    "Das PDF konnte in diesem Browser nicht erstellt werden. Öffnen Sie die Website in Safari oder Chrome und versuchen Sie es erneut."
+  ],
+  "3D visualization is unavailable in this browser. The response metrics remain available below.": [
+    "A visualização 3D não está disponível neste navegador. As métricas de resposta continuam disponíveis abaixo.",
+    "3D-визуализация недоступна в этом браузере. Показатели отклика доступны ниже.",
+    "このブラウザーでは3D表示を利用できません。応答指標は以下で引き続き確認できます。",
+    "La visualizzazione 3D non è disponibile in questo browser. Le metriche di risposta restano disponibili qui sotto.",
+    "Die 3D-Visualisierung ist in diesem Browser nicht verfügbar. Die Reaktionswerte bleiben unten verfügbar."
+  ],
   "GEOGRAPHIC SCENARIO": [
     "CENÁRIO GEOGRÁFICO",
     "ГЕОГРАФИЧЕСКИЙ СЦЕНАРИЙ",

@@ -9,7 +9,8 @@ import EmergencyKit from "./components/EmergencyKit";
 import ForecastLab from "./components/ForecastLab";
 import LiveAlerts from "./components/LiveAlerts";
 import RegionalSimulator from "./components/RegionalSimulator";
-import { createSeismicPdf } from "./lib/pdf-report.mjs";
+import { cancelPdfDelivery, createSeismicPdf, preparePdfDelivery } from "./lib/pdf-report.mjs";
+import { isEmbeddedSocialBrowser, observeElementResize, safeStorageGet, safeStorageSet } from "./lib/browser-compat";
 import { LANGUAGES, LocalizationRuntime, translateText, type Language } from "./lib/i18n";
 
 type StructureType = "concrete" | "steel" | "masonry" | "timber";
@@ -305,6 +306,7 @@ function EarthquakeScene({
   resetSignal,
   viewCommand,
   onTime,
+  unavailableLabel,
 }: {
   config: SimulationConfig;
   metrics: Metrics;
@@ -313,8 +315,10 @@ function EarthquakeScene({
   resetSignal: number;
   viewCommand: ViewCommand;
   onTime: (time: number) => void;
+  unavailableLabel: string;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const [sceneUnavailable, setSceneUnavailable] = useState(false);
   const liveRef = useRef({ config, metrics, running, speed, resetSignal, viewCommand, onTime });
 
   useEffect(() => {
@@ -337,7 +341,14 @@ function EarthquakeScene({
     scene.fog = new THREE.Fog("#17211f", 50, 165);
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 320);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 2, alpha: false, powerPreference: "low-power" });
+    } catch {
+      setSceneUnavailable(true);
+      return;
+    }
+    setSceneUnavailable(false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -635,8 +646,7 @@ function EarthquakeScene({
         fitCamera();
       }
     };
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(mount);
+    const stopObservingResize = observeElementResize(mount, resize);
     resize();
     fitCamera();
 
@@ -693,7 +703,7 @@ function EarthquakeScene({
 
     return () => {
       cancelAnimationFrame(animationFrame);
-      resizeObserver.disconnect();
+      stopObservingResize();
       controls.dispose();
       renderer.dispose();
       scene.traverse((object) => {
@@ -707,7 +717,7 @@ function EarthquakeScene({
     };
   }, [config.floors, config.structure, config.structureKind, config.vehicleOccupancy, metrics.damageScore, metrics.damageColor]);
 
-  return <div className="scene-mount" ref={mountRef} role="img" aria-label={`Interactive 3D ${STRUCTURE_KINDS[config.structureKind].label} earthquake simulation. Structural response values are also available in the response metrics panel.`} />;
+  return <div className="scene-mount" ref={mountRef} role="img" aria-label={`Interactive 3D ${STRUCTURE_KINDS[config.structureKind].label} earthquake simulation. Structural response values are also available in the response metrics panel.`}>{sceneUnavailable && <span className="map-webview-fallback">{unavailableLabel}</span>}</div>;
 }
 
 export default function Home() {
@@ -730,6 +740,8 @@ export default function Home() {
   const [reduceMotion, setReduceMotion] = useState(false);
   const [tourStep, setTourStep] = useState(-1);
   const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [embeddedBrowser, setEmbeddedBrowser] = useState(false);
   const modeNavRef = useRef<HTMLElement>(null);
   const accessibilityPanelRef = useRef<HTMLDivElement>(null);
   const helpCenterRef = useRef<HTMLElement>(null);
@@ -739,14 +751,14 @@ export default function Home() {
   const t = useCallback((value: string) => translateText(value, language), [language]);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("seismic-language") as Language | null;
+    const saved = safeStorageGet("seismic-language") as Language | null;
     if (saved && LANGUAGES.some(({ code }) => code === saved)) window.setTimeout(() => setLanguage(saved), 0);
   }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const saved = JSON.parse(window.localStorage.getItem("seismic-accessibility") ?? "{}") as Partial<Record<AccessibilityPreference, boolean>>;
+        const saved = JSON.parse(safeStorageGet("seismic-accessibility") ?? "{}") as Partial<Record<AccessibilityPreference, boolean>>;
         setLargeText(saved.largeText ?? false);
         setHighContrast(saved.highContrast ?? false);
         setReduceMotion(saved.reduceMotion ?? window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -756,6 +768,8 @@ export default function Home() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => setEmbeddedBrowser(isEmbeddedSocialBrowser()), []);
 
   useEffect(() => {
     document.documentElement.dataset.textSize = largeText ? "large" : "standard";
@@ -769,7 +783,7 @@ export default function Home() {
   const changeLanguage = (nextLanguage: Language) => {
     if (nextLanguage === language) return;
     setLanguage(nextLanguage);
-    window.localStorage.setItem("seismic-language", nextLanguage);
+    safeStorageSet("seismic-language", nextLanguage);
   };
 
   const updateAccessibility = (preference: AccessibilityPreference, enabled: boolean) => {
@@ -777,7 +791,7 @@ export default function Home() {
     if (preference === "largeText") setLargeText(enabled);
     if (preference === "highContrast") setHighContrast(enabled);
     if (preference === "reduceMotion") setReduceMotion(enabled);
-    window.localStorage.setItem("seismic-accessibility", JSON.stringify(next));
+    safeStorageSet("seismic-accessibility", JSON.stringify(next));
   };
 
   useEffect(() => {
@@ -906,7 +920,9 @@ export default function Home() {
   };
 
   const downloadReport = async () => {
+    const deliveryWindow = preparePdfDelivery();
     setReportBusy(true);
+    setReportError("");
     try {
       await createSeismicPdf({
         filename: `seismic-${config.structureKind}-report.pdf`,
@@ -937,7 +953,10 @@ export default function Home() {
         importanceFactor: config.importanceFactor,
         damping: config.damping,
         reliability: config.reliability,
-      }, { language, translate: t });
+      }, { language, translate: t, deliveryWindow });
+    } catch {
+      cancelPdfDelivery(deliveryWindow);
+      setReportError(t("The PDF could not be generated in this browser. Open the site in Safari or Chrome and try again."));
     } finally {
       setReportBusy(false);
     }
@@ -953,6 +972,7 @@ export default function Home() {
     <main className={`app-shell${largeText ? " a11y-large-text" : ""}${highContrast ? " a11y-high-contrast" : ""}${reduceMotion ? " a11y-reduce-motion" : ""}`} key={language}>
       <LocalizationRuntime language={language} />
       <a className="skip-link" href="#main-content">Skip to main content</a>
+      {embeddedBrowser && <aside className="webview-notice" role="status"><strong>{t("Embedded browser detected")}</strong><span>{t("PDFs will open in a viewer or share sheet. For the most reliable maps and downloads, use your browser menu to open SEISMIC in Safari or Chrome.")}</span><a href="https://www.sismica.pro/" target="_blank" rel="external noreferrer">{t("Open SEISMIC in browser")}</a></aside>}
       {introVisible && (
         <div className={`intro-screen${introLeaving ? " intro-leaving" : ""}`} role="status" aria-label="Loading SEISMIC Structural Response Lab">
           {/* The launch artwork must render immediately and is already preloaded by the server. */}
@@ -1078,7 +1098,7 @@ export default function Home() {
                       data-version="v1"
                     />
                   </div>
-                  <p className="privacy-note">This link opens Diego’s LinkedIn profile in a new tab.</p>
+                  <a className="contact-github-link" href="https://github.com/mr-dap-lab/seismic" target="_blank" rel="noreferrer" aria-label="Open the SEISMIC repository on GitHub">GitHub</a>
                 </section>
               )}
             </div>
@@ -1150,7 +1170,7 @@ export default function Home() {
             <div className="view-hint"><span>↗</span> Drag to orbit · Scroll to zoom</div>
           </div>
           <div className="scene-wrap">
-            <EarthquakeScene config={config} metrics={metrics} running={running && !reduceMotion} speed={speed} resetSignal={resetSignal} viewCommand={viewCommand} onTime={handleTime} />
+            <EarthquakeScene config={config} metrics={metrics} running={running && !reduceMotion} speed={speed} resetSignal={resetSignal} viewCommand={viewCommand} onTime={handleTime} unavailableLabel={t("3D visualization is unavailable in this browser. The response metrics remain available below.")} />
             <div className="scene-vignette" />
             <div className="zoom-tools" aria-label="Viewport zoom controls">
               <button className="has-tooltip tooltip-right" type="button" onClick={() => sendViewCommand("in")} aria-label={t("Zoom in")}>+<span className="tooltip-bubble" aria-hidden="true">{t("Zoom in")}</span></button>
@@ -1215,6 +1235,7 @@ export default function Home() {
           <section className={`report-section${tourStep >= 0 && TOUR_STEPS[tourStep].target === "report" ? " tour-focus" : ""}`}>
             <button className="report-button has-tooltip tooltip-top" type="button" onClick={downloadReport} disabled={reportBusy}><span>↓</span> {t(reportBusy ? "Generating PDF..." : "Download PDF report")}<span className="tooltip-bubble" aria-hidden="true">{t("Export current inputs and results as PDF")}</span></button>
             <p><strong>Professional-use disclaimer:</strong> This report does not replace the expertise or judgment of a licensed engineer. No liability is accepted for decisions or outcomes based on generated results.</p>
+            {reportError && <p className="report-error" role="alert">{reportError}</p>}
           </section>
 
           <p className="model-note">Indicative educational model · Simplified response spectrum · Values update continuously</p>

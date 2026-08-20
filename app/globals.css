@@ -14,8 +14,8 @@
 
 * { box-sizing: border-box; }
 
-html { font-size: 100%; }
-html, body { margin: 0; min-height: 100%; overflow-x: clip; background: #e8ece9; color: var(--ink); }
+html { min-height: 100%; font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { margin: 0; min-height: 100%; overflow-x: clip; overscroll-behavior-x: none; background: #e8ece9; color: var(--ink); }
 body { font-family: Arial, Helvetica, sans-serif; font-size: 0.875rem; line-height: 1.5; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
@@ -24,7 +24,11 @@ button { cursor: pointer; }
 .skip-link:focus { transform: translateY(0); }
 .main-content:focus { outline: none; }
 
-.app-shell { min-height: 100vh; background: #e8ece9; }
+.app-shell { min-height: 100vh; min-height: 100dvh; background: #e8ece9; }
+.webview-notice { position: relative; z-index: 45; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 48px; padding: 8px max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left)); border-bottom: 1px solid #d3b071; color: #493b22; background: #fff3d4; font-size: 0.8125rem; line-height: 1.35; }
+.webview-notice strong { white-space: nowrap; }
+.webview-notice a { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; border: 1px solid #705b32; border-radius: 3px; color: #392e19; font-weight: 800; text-decoration: none; white-space: nowrap; }
+.webview-notice a:focus-visible { outline: 3px solid rgba(230,102,63,.35); outline-offset: 2px; }
 .intro-screen { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden; background: #0d1715; opacity: 1; visibility: visible; transition: opacity .65s ease, visibility .65s ease; }
 .intro-screen::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 68%, rgba(8,15,13,.88)); pointer-events: none; }
 .intro-screen img { width: 100%; height: 100%; object-fit: cover; animation: intro-zoom 2.7s ease-out both; }
@@ -131,7 +135,10 @@ button { cursor: pointer; }
 .contact-heading p { margin-top: 4px; }
 .linkedin-badge-shell { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 16px; overflow: hidden; border: 1px solid #35423e; border-radius: 4px; background: #1b2421; }
 .linkedin-badge-shell .LI-profile-badge { display: flex; align-items: center; justify-content: center; width: auto; max-width: 100%; margin: 0 auto; }
-.privacy-note { padding-left: 9px; border-left: 2px solid #cbd3cf; font-size: 0.75rem !important; }
+.contact-github-link { display: flex; align-items: center; justify-content: center; width: fit-content; min-width: 132px; min-height: 42px; margin: 18px auto 0; padding: 0 20px; border: 1px solid #263b35; border-radius: 3px; color: #fff; background: #263b35; font-size: 0.8125rem; font-weight: 850; letter-spacing: .04em; text-decoration: none; }
+.contact-github-link:hover, .contact-github-link:focus-visible { border-color: var(--signal); background: #334d45; outline: 3px solid rgba(230,102,63,.24); outline-offset: 2px; }
+.report-error { width: 100%; margin-top: 10px !important; padding: 10px 12px; border-left: 3px solid #b9472e; color: #742e20 !important; background: #faece7; font-weight: 700; }
+.map-webview-fallback { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; color: #4f5f58; background: #e9eeeb; font-size: 0.875rem; font-weight: 750; text-align: center; }
 .disclaimer-panel { display: flex; flex-direction: column; gap: 17px; }
 .disclaimer-panel > header { padding-bottom: 17px; border-bottom: 1px solid #d7dfda; }
 .disclaimer-panel > header h3 { font-size: 1.375rem; }
@@ -694,7 +701,11 @@ html[dir="rtl"] .disclaimer-methods, html[dir="rtl"] .disclaimer-references { pa
 }
 
 @media (max-width: 760px) {
-  .topbar { height: 104px; grid-template-columns: auto minmax(0, 1fr); padding: 0 12px 46px; }
+  .topbar { height: calc(104px + env(safe-area-inset-top)); grid-template-columns: auto minmax(0, 1fr); padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 46px max(12px, env(safe-area-inset-left)); }
+  .webview-notice { grid-template-columns: 1fr auto; gap: 6px 10px; }
+  .webview-notice strong { white-space: normal; }
+  .webview-notice span { grid-column: 1 / -1; grid-row: 2; }
+  .webview-notice a { grid-column: 2; grid-row: 1; }
   .brand small { display: none; }
   .topbar { gap: 8px; }
   .mode-nav { position: absolute; inset: auto 0 0; width: 100%; height: 46px; justify-content: center; border-top: 1px solid #2e3a36; transform: none; }
@@ -770,6 +781,8 @@ html[dir="rtl"] .disclaimer-methods, html[dir="rtl"] .disclaimer-references { pa
   .kit-category-grid { grid-template-columns: 1fr; }
   .kit-checklist label { min-height: 52px; font-size: 0.875rem; }
   .kit-category-toggle { min-height: 43px; font-size: 0.75rem; }
+  input, select, textarea { font-size: 16px !important; }
+  .help-center { padding-bottom: env(safe-area-inset-bottom); }
 }
 
 html[dir="rtl"] body { font-family: Arial, Tahoma, sans-serif; }
@@ -909,6 +922,10 @@ html[data-text-size="large"] { font-size: 112.5%; }
 .a11y-reduce-motion .waveform i { animation: none; height: 4px; }
 
 @media (max-width: 760px) {
+  /* Keep iOS/WKWebView from auto-zooming focused controls. This rule lives
+     after the global accessible type floor so the mobile size cannot be
+     overridden by a more specific selector later in the cascade. */
+  .app-shell :where(input:not([type="range"]), select, textarea) { font-size: 16px !important; }
   .topbar { height: 112px; padding-bottom: 52px; }
   .mode-nav { height: 52px; justify-content: flex-start; gap: 3px; padding: 0 6px; overflow-x: auto; scrollbar-width: thin; }
   .mode-nav button { flex: 0 0 auto; max-width: none; min-height: 44px; padding: 0 10px; white-space: nowrap; }

@@ -1,10 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import Script from "next/script";
 import "./globals.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const description = "Explore how ground motion, site conditions, and structural design influence earthquake response in an interactive Three.js simulator.";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  colorScheme: "light",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const incomingHeaders = await headers();

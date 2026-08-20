@@ -66,6 +66,8 @@ test("wires PDF, geolocated regional mapping, probabilistic forecasting, live US
   assert.match(page, /data-size="large"/);
   assert.match(page, /data-type="HORIZONTAL"/);
   assert.doesNotMatch(page, /badge-base__link LI-simple-link/);
+  assert.doesNotMatch(page, /This link opens Diego’s LinkedIn profile in a new tab/);
+  assert.match(page, /className="contact-github-link" href="https:\/\/github\.com\/mr-dap-lab\/seismic"/);
   assert.match(page, /window\.LIRenderAll/);
   assert.doesNotMatch(page, /className="linkedin-link"/);
   assert.match(page, />Emergency kit<\/button>/);
@@ -88,7 +90,7 @@ test("wires PDF, geolocated regional mapping, probabilistic forecasting, live US
   assert.match(i18n, /日本語/);
   assert.match(i18n, /Italiano/);
   assert.match(i18n, /Deutsch/);
-  assert.equal((i18nExtended.match(/^  ".*": \[$/gm) ?? []).length, 412);
+  assert.equal((i18nExtended.match(/^  ".*": \[$/gm) ?? []).length, 418);
   assert.match(i18nExtended, /Kit de emergência/);
   assert.match(i18nExtended, /Аварийный комплект/);
   assert.match(i18nExtended, /緊急キット/);
@@ -110,7 +112,7 @@ test("wires PDF, geolocated regional mapping, probabilistic forecasting, live US
   assert.match(regional, /tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png/);
   assert.match(regional, /"raster-fade-duration": 0/);
   assert.match(regional, /navigator\.geolocation\.getCurrentPosition/);
-  assert.match(regional, /nominatim\.openstreetmap\.org\/search/);
+  assert.match(regional, /fetch\(`\/api\/geocode\?/);
   assert.match(regional, /function impactRadii/);
   assert.match(regional, /function updateImpactLayers/);
   assert.match(regional, /captureImpactMap\(map, impactOverlayRef\.current\)/);
@@ -201,6 +203,8 @@ test("wires PDF, geolocated regional mapping, probabilistic forecasting, live US
   assert.match(forecastLocales, /La magnitud mínima que se pronostica/);
   assert.match(forecastLocales, /予測対象の最小マグニチュード/);
   assert.match(disclaimer, /This software does not predict earthquakes/);
+  assert.match(disclaimer, /this application is a merely an academic exercise/);
+  assert.doesNotMatch(disclaimer, /It was prepared by an AI assistant, not an attorney/);
   assert.match(disclaimer, /no component of that toolkit was validated against the live USGS catalog/i);
   assert.match(disclaimerLocales, /DISCLAIMER_TRANSLATION_SOURCE_COUNT = sources\.length/);
   assert.match(disclaimerLocales, /Este software no predice terremotos/);
@@ -245,6 +249,15 @@ test("wires PDF, geolocated regional mapping, probabilistic forecasting, live US
   assert.match(emergencyKit, /className="kit-body"/);
   assert.match(css, /\.kit-hero h1\s*\{[^}]*clamp\(32px, 3vw, 44px\)/s);
   assert.match(css, /\.linkedin-badge-shell \.LI-profile-badge\s*\{[^}]*justify-content:\s*center;[^}]*margin:\s*0 auto/s);
+  assert.match(css, /\.contact-github-link\s*\{[^}]*margin:\s*18px auto 0/s);
+  assert.match(css, /\.webview-notice/);
+  assert.match(css, /env\(safe-area-inset-top\)/);
+  assert.match(css, /input, select, textarea \{ font-size: 16px !important/);
+  assert.match(page, /isEmbeddedSocialBrowser/);
+  assert.match(page, /preparePdfDelivery/);
+  assert.match(pdf, /navigator\.share/);
+  assert.match(pdf, /URL\.createObjectURL\(blob\)/);
+  assert.match(regional, /fetch\(`\/api\/geocode\?/);
   assert.match(css, /\.kit-category-grid/);
   assert.match(css, /\.kit-progress-ring/);
   assert.match(css, /\.kit-planning-bar > label\s*\{[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto/s);

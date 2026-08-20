@@ -26,7 +26,7 @@ export default function DisclaimerPanel({ language }: { language: Language }) {
 
       <section className="disclaimer-alert" role="note">
         <strong>{t("LEGAL NOTICE")}</strong>
-        <p>{t("This document is not legal advice. It was prepared by an AI assistant, not an attorney. Its liability language must be reviewed by qualified legal counsel before commercial, published, or client-facing use.")}</p>
+        <p>{t("This document is not legal advice, this application is a merely an academic exercise, not a source of truth and neither tested through the scientific method, so the creator is not liable or responsible for any misuse or decisions made based on the information contained here.")}</p>
       </section>
 
       <section>

@@ -5,6 +5,7 @@ import { Map, Marker, NavigationControl, Popup, type GeoJSONSource, type StyleSp
 import type { FeatureCollection, Point } from "geojson";
 import { ParameterLabel } from "./ParameterTooltip";
 import { translateText, type Language } from "../lib/i18n";
+import { observeElementResize } from "../lib/browser-compat";
 
 type ForecastEvent = {
   id: string;
@@ -185,6 +186,7 @@ type ForecastMapLabels = {
   scenario: string;
   days: string;
   close: string;
+  unavailable: string;
 };
 
 function largeEventPoints(events: ForecastEvent[]): FeatureCollection<Point> {
@@ -215,6 +217,7 @@ function ForecastWorldMap({ cells, events, selectedId, onSelect, label, labels, 
   const markersRef = useRef<Marker[]>([]);
   const popupRef = useRef<Popup | null>(null);
   const popupCellIdRef = useRef<string | null>(null);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   const cellsRef = useRef(cells);
   const eventsRef = useRef(events);
   const selectedRef = useRef(selectedId);
@@ -274,16 +277,23 @@ function ForecastWorldMap({ cells, events, selectedId, onSelect, label, labels, 
 
   useEffect(() => {
     if (!mountRef.current || mapRef.current) return;
-    const map = new Map({
-      container: mountRef.current,
-      style: MAP_STYLE,
-      center: [10, 6],
-      zoom: 0.7,
-      minZoom: 0.25,
-      maxZoom: 7,
-      renderWorldCopies: false,
-      attributionControl: { compact: true },
-    });
+    let map: Map;
+    try {
+      map = new Map({
+        container: mountRef.current,
+        style: MAP_STYLE,
+        center: [10, 6],
+        zoom: 0.7,
+        minZoom: 0.25,
+        maxZoom: 7,
+        renderWorldCopies: false,
+        attributionControl: { compact: true },
+        canvasContextAttributes: { antialias: false, powerPreference: "low-power" },
+      });
+    } catch {
+      setMapUnavailable(true);
+      return;
+    }
     mapRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.on("load", () => {
@@ -331,10 +341,9 @@ function ForecastWorldMap({ cells, events, selectedId, onSelect, label, labels, 
         onSelect(id);
       }
     });
-    const observer = new ResizeObserver(() => map.resize());
-    observer.observe(mountRef.current);
+    const stopObservingResize = observeElementResize(mountRef.current, () => map.resize());
     return () => {
-      observer.disconnect();
+      stopObservingResize();
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       popupRef.current?.remove();
@@ -402,7 +411,7 @@ function ForecastWorldMap({ cells, events, selectedId, onSelect, label, labels, 
     };
   }, [cells, labels.area, labels.expected, labels.probability, locale, onSelect, selectedId, showMetadata]);
 
-  return <div className="forecast-map" ref={mountRef} role="img" aria-label={label} />;
+  return <div className="forecast-map" ref={mountRef} role="img" aria-label={label}>{mapUnavailable && <span className="map-webview-fallback">{labels.unavailable}</span>}</div>;
 }
 
 function FactorRow({ name, status, detail, tone = "muted" }: { name: string; status: string; detail: string; tone?: "strong" | "research" | "muted" }) {
@@ -638,6 +647,7 @@ export default function ForecastLab({ language }: { language: Language }) {
               scenario: t("Scenario"),
               days: t(horizonDays === 1 ? "day" : "days"),
               close: t("Close forecast details"),
+              unavailable: t("Map image unavailable in this browser"),
             }}
           /> : <div className="forecast-map-loading">{loading ? t("Calculating probability surface...") : t("No forecast surface available")}</div>}
           {selected && <div className="forecast-selection" aria-live="polite"><div><span>{t("SELECTED AREA")}</span><strong>{localizedRegion(selected.region, locale)}</strong><small>{selected.latitude.toFixed(1)}°, {selected.longitude.toFixed(1)}° · {GRID_STEP}° {t("cell")}</small></div><div><span>{t("CELL PROBABILITY")}</span><strong>{percent(selected.probability)}</strong><small>{t("Expected count")} {number(selected.expected, 3)}</small></div></div>}

@@ -5,6 +5,7 @@ import { Map, Marker, NavigationControl, type GeoJSONSource, type StyleSpecifica
 import type { FeatureCollection, Point } from "geojson";
 import { ParameterLabel } from "./ParameterTooltip";
 import { translateText, type Language } from "../lib/i18n";
+import { observeElementResize, safeStorageGet, safeStorageRemove, safeStorageSet } from "../lib/browser-compat";
 
 type FeedWindow = "hour" | "day" | "48hours" | "72hours" | "week";
 
@@ -119,6 +120,7 @@ function WorldEarthquakeMap({ events, selectedEvent, onSelect, t, locale }: {
   const eventsRef = useRef(events);
   const selectedIdRef = useRef(selectedEvent?.id ?? null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
 
   useEffect(() => {
     eventsRef.current = events;
@@ -127,17 +129,24 @@ function WorldEarthquakeMap({ events, selectedEvent, onSelect, t, locale }: {
 
   useEffect(() => {
     if (!mapMountRef.current || mapInstanceRef.current) return;
-    const map = new Map({
-      container: mapMountRef.current,
-      style: WORLD_MAP_STYLE,
-      center: WORLD_CENTER,
-      zoom: WORLD_ZOOM,
-      minZoom: 0.05,
-      maxZoom: 8,
-      pitch: 0,
-      bearing: 0,
-      renderWorldCopies: false,
-    });
+    let map: Map;
+    try {
+      map = new Map({
+        container: mapMountRef.current,
+        style: WORLD_MAP_STYLE,
+        center: WORLD_CENTER,
+        zoom: WORLD_ZOOM,
+        minZoom: 0.05,
+        maxZoom: 8,
+        pitch: 0,
+        bearing: 0,
+        renderWorldCopies: false,
+        canvasContextAttributes: { antialias: false, powerPreference: "low-power" },
+      });
+    } catch {
+      setMapUnavailable(true);
+      return;
+    }
     mapInstanceRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
 
@@ -177,10 +186,9 @@ function WorldEarthquakeMap({ events, selectedEvent, onSelect, t, locale }: {
       if (typeof eventId === "string") onSelect(eventId);
     });
 
-    const observer = new ResizeObserver(() => map.resize());
-    observer.observe(mapMountRef.current);
+    const stopObservingResize = observeElementResize(mapMountRef.current, () => map.resize());
     return () => {
-      observer.disconnect();
+      stopObservingResize();
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       map.remove();
@@ -259,7 +267,7 @@ function WorldEarthquakeMap({ events, selectedEvent, onSelect, t, locale }: {
         <button type="button" onClick={resetWorldView}>{t("Reset world view")}</button>
       </header>
       <div className="alerts-world-map-stage">
-        <div ref={mapMountRef} className="alerts-world-map" aria-label={t("Interactive world map of filtered USGS earthquakes")} />
+        <div ref={mapMountRef} className="alerts-world-map" aria-label={t("Interactive world map of filtered USGS earthquakes")}>{mapUnavailable && <span className="map-webview-fallback">{t("Map image unavailable in this browser")}</span>}</div>
         <div className="alerts-world-legend" aria-label={t("Magnitude legend")}>
           <span><i className="low" />M &lt; 4.5</span><span><i className="moderate" />M 4.5–5.9</span><span><i className="high" />M 6–6.9</span><span><i className="critical" />M 7+</span>
         </div>
@@ -323,7 +331,7 @@ export default function LiveAlerts({ language }: { language: Language }) {
         return;
       }
       setNotificationPermission(Notification.permission);
-      const enabled = window.localStorage.getItem("seismic-live-alerts") === "enabled" && Notification.permission === "granted";
+      const enabled = safeStorageGet("seismic-live-alerts") === "enabled" && Notification.permission === "granted";
       notificationsEnabledRef.current = enabled;
       setNotificationsEnabled(enabled);
     }, 0);
@@ -407,7 +415,7 @@ export default function LiveAlerts({ language }: { language: Language }) {
     if (notificationsEnabled) {
       notificationsEnabledRef.current = false;
       setNotificationsEnabled(false);
-      window.localStorage.removeItem("seismic-live-alerts");
+      safeStorageRemove("seismic-live-alerts");
       return;
     }
     const permission = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
@@ -415,7 +423,7 @@ export default function LiveAlerts({ language }: { language: Language }) {
     if (permission === "granted") {
       notificationsEnabledRef.current = true;
       setNotificationsEnabled(true);
-      window.localStorage.setItem("seismic-live-alerts", "enabled");
+      safeStorageSet("seismic-live-alerts", "enabled");
     }
   };
 

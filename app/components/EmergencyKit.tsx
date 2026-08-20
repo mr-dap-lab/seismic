@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { translateText, type Language } from "../lib/i18n";
+import { safeStorageGet, safeStorageSet } from "../lib/browser-compat";
 
 type KitCategory = {
   id: string;
@@ -98,7 +99,7 @@ export default function EmergencyKit({ language }: { language: Language }) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]") as string[];
+        const saved = JSON.parse(safeStorageGet(STORAGE_KEY) ?? "[]") as string[];
         setCheckedItems(new Set(saved));
       } catch {
         setCheckedItems(new Set());
@@ -110,7 +111,7 @@ export default function EmergencyKit({ language }: { language: Language }) {
 
   useEffect(() => {
     if (!storageReady) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...checkedItems]));
+    safeStorageSet(STORAGE_KEY, JSON.stringify([...checkedItems]));
   }, [checkedItems, storageReady]);
 
   const toggleItem = (itemId: string) => {

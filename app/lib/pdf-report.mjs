@@ -1,6 +1,70 @@
 const DISCLAIMER = "This report is generated from a simplified educational simulation. It does not replace the expertise, inspection, calculations, or professional judgment of a licensed structural or civil engineer. The website and its creators accept no responsibility or liability for decisions, designs, losses, injuries, or damages based on this report. Do not use this report for construction, code compliance, emergency planning, property transactions, or life-safety decisions.";
 const LANGUAGE_LOCALES = { en: "en-US", es: "es-ES", fr: "fr-FR", yue: "zh-HK", hi: "hi-IN", ar: "ar-SA", pt: "pt-BR", ru: "ru-RU", ja: "ja-JP", it: "it-IT", de: "de-DE" };
 
+const EMBEDDED_BROWSER_PATTERN = /Instagram|FBAN|FBAV|FB_IAB|LinkedInApp|LinkedIn|Twitter|Line\/|Snapchat|TikTok|; wv\)|\bwv\b/i;
+
+export function preparePdfDelivery() {
+  if (typeof window === "undefined" || !EMBEDDED_BROWSER_PATTERN.test(navigator.userAgent)) return null;
+  try {
+    const viewer = window.open("", "_blank");
+    if (viewer) {
+      viewer.document.title = "Preparing SEISMIC PDF";
+      viewer.document.body.innerHTML = '<main style="font:16px Arial,sans-serif;padding:32px;color:#24322d"><strong>Preparing your SEISMIC PDF…</strong><p>Please keep this window open.</p></main>';
+    }
+    return viewer;
+  } catch { return null; }
+}
+
+export function cancelPdfDelivery(viewer) {
+  try { if (viewer && !viewer.closed) viewer.close(); } catch { /* embedded browser denied window access */ }
+}
+
+async function deliverPdf(doc, filename, viewer) {
+  if (typeof window === "undefined") return;
+  const blob = doc.output("blob");
+  const embedded = EMBEDDED_BROWSER_PATTERN.test(navigator.userAgent);
+  const file = typeof File === "function" ? new File([blob], filename, { type: "application/pdf" }) : null;
+  const sharePayload = file ? { files: [file], title: filename } : null;
+
+  if (embedded && sharePayload && typeof navigator.share === "function" && (!navigator.canShare || navigator.canShare(sharePayload))) {
+    try {
+      await navigator.share(sharePayload);
+      cancelPdfDelivery(viewer);
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        cancelPdfDelivery(viewer);
+        return;
+      }
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120_000);
+  try {
+    if (viewer && !viewer.closed) {
+      viewer.location.replace(objectUrl);
+      viewer.focus();
+      return;
+    }
+  } catch { /* fall through to link delivery */ }
+
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  if (embedded) {
+    window.setTimeout(() => {
+      if (document.visibilityState === "visible") window.location.assign(objectUrl);
+    }, 700);
+  }
+}
+
 function localizeOptions(options) {
   const language = options.language ?? "en";
   return {
@@ -54,7 +118,7 @@ function enableUnicodeText(doc, language) {
 /**
  * Build the downloadable structural-response PDF.
  * @param {{filename?: string, generated?: string, structure: string, system: string, stories: number, storyHeight: number, totalHeight: number, vehicleOccupancy?: number, siteClass: string, magnitude: number, intensity: number, amplitude: number, frequency: number, mmiRoman: string, mmi: number, mmiTitle: string, mmiLegend: string, pga: number, spectralAcceleration: number, period: number, drift: number, driftLimit: number, baseShear: number, damageScore: number, damageLabel: string, responseFactor: number, importanceFactor: number, damping: number, reliability: number}} data
- * @param {{save?: boolean, language?: string, translate?: (value: string) => string}} options
+ * @param {{save?: boolean, language?: string, translate?: (value: string) => string, deliveryWindow?: Window | null}} options
  */
 export async function createSeismicPdf(data, options = {}) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
@@ -175,14 +239,14 @@ export async function createSeismicPdf(data, options = {}) {
     doc.text(`${page} / ${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 20, { align: "right" });
   }
 
-  if (options.save !== false) doc.save(data.filename ?? "seismic-analysis-report.pdf");
+  if (options.save !== false) await deliverPdf(doc, data.filename ?? "seismic-analysis-report.pdf", options.deliveryWindow);
   return doc;
 }
 
 /**
  * Build the downloadable regional-impact PDF.
  * @param {{filename?: string, generated?: string, location: string, latitude: number, longitude: number, magnitude: number, focalDepth: number, analysisRadius: number, siteClass: string, siteFactor: number, mmi: number, epicenterPga: number, edgePga: number, highRadius: number, moderateRadius: number, lowRadius: number, mapImage?: string}} data
- * @param {{save?: boolean, language?: string, translate?: (value: string) => string}} options
+ * @param {{save?: boolean, language?: string, translate?: (value: string) => string, deliveryWindow?: Window | null}} options
  */
 export async function createRegionalPdf(data, options = {}) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
@@ -303,6 +367,6 @@ export async function createRegionalPdf(data, options = {}) {
     doc.text(`${page} / ${doc.getNumberOfPages()}`, pageWidth - margin, pageHeight - 19, { align: "right" });
   }
 
-  if (options.save !== false) doc.save(data.filename ?? "seismic-regional-impact-report.pdf");
+  if (options.save !== false) await deliverPdf(doc, data.filename ?? "seismic-regional-impact-report.pdf", options.deliveryWindow);
   return doc;
 }
