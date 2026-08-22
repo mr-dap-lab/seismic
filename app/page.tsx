@@ -10,7 +10,7 @@ import ForecastLab from "./components/ForecastLab";
 import LiveAlerts from "./components/LiveAlerts";
 import RegionalSimulator from "./components/RegionalSimulator";
 import { cancelPdfDelivery, createSeismicPdf, preparePdfDelivery } from "./lib/pdf-report.mjs";
-import { isEmbeddedSocialBrowser, observeElementResize, safeStorageGet, safeStorageSet } from "./lib/browser-compat";
+import { externalBrowserLaunchUrl, isEmbeddedSocialBrowser, observeElementResize, safeStorageGet, safeStorageSet } from "./lib/browser-compat";
 import { LANGUAGES, LocalizationRuntime, translateText, type Language } from "./lib/i18n";
 
 type StructureType = "concrete" | "steel" | "masonry" | "timber";
@@ -742,6 +742,7 @@ export default function Home() {
   const [reportBusy, setReportBusy] = useState(false);
   const [reportError, setReportError] = useState("");
   const [embeddedBrowser, setEmbeddedBrowser] = useState(false);
+  const [externalBrowserHref, setExternalBrowserHref] = useState("https://www.sismica.pro/");
   const modeNavRef = useRef<HTMLElement>(null);
   const accessibilityPanelRef = useRef<HTMLDivElement>(null);
   const helpCenterRef = useRef<HTMLElement>(null);
@@ -769,7 +770,14 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  useEffect(() => setEmbeddedBrowser(isEmbeddedSocialBrowser()), []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const embedded = isEmbeddedSocialBrowser();
+      setEmbeddedBrowser(embedded);
+      if (embedded) setExternalBrowserHref(externalBrowserLaunchUrl("https://www.sismica.pro/"));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.textSize = largeText ? "large" : "standard";
@@ -972,7 +980,7 @@ export default function Home() {
     <main className={`app-shell${largeText ? " a11y-large-text" : ""}${highContrast ? " a11y-high-contrast" : ""}${reduceMotion ? " a11y-reduce-motion" : ""}`} key={language}>
       <LocalizationRuntime language={language} />
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      {embeddedBrowser && <aside className="webview-notice" role="status"><strong>{t("Embedded browser detected")}</strong><span>{t("PDFs will open in a viewer or share sheet. For the most reliable maps and downloads, use your browser menu to open SEISMIC in Safari or Chrome.")}</span><a href="https://www.sismica.pro/" target="_blank" rel="external noreferrer">{t("Open SEISMIC in browser")}</a></aside>}
+      {embeddedBrowser && <aside className="webview-notice" role="status"><strong>{t("Embedded browser detected")}</strong><span>{t("PDFs will open in a viewer or share sheet. For the most reliable maps and downloads, use your browser menu to open SEISMIC in Safari or Chrome.")}</span><a href={externalBrowserHref} rel="external noreferrer" data-browser-handoff="true">{t("Open SEISMIC in browser")}</a></aside>}
       {introVisible && (
         <div className={`intro-screen${introLeaving ? " intro-leaving" : ""}`} role="status" aria-label="Loading SEISMIC Structural Response Lab">
           {/* The launch artwork must render immediately and is already preloaded by the server. */}

@@ -21,7 +21,7 @@ test("builds the production-ready SEISMIC application", async () => {
 });
 
 test("wires PDF, geolocated regional mapping, probabilistic forecasting, live USGS alerts, parameter help, and Vercel configuration", async () => {
-  const [page, regional, forecast, forecastRoute, disclaimer, forecastLocales, disclaimerLocales, liveAlerts, emergencyKit, tooltip, i18n, i18nExtended, pdf, css, packageJson, vercel] = await Promise.all([
+  const [page, regional, forecast, forecastRoute, disclaimer, forecastLocales, disclaimerLocales, liveAlerts, emergencyKit, tooltip, i18n, i18nExtended, pdf, browserCompat, css, packageJson, vercel] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/RegionalSimulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ForecastLab.tsx", import.meta.url), "utf8"),
@@ -35,6 +35,7 @@ test("wires PDF, geolocated regional mapping, probabilistic forecasting, live US
     readFile(new URL("../app/lib/i18n.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/i18n-extended.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/pdf-report.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/browser-compat.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../vercel.json", import.meta.url), "utf8"),
@@ -55,6 +56,9 @@ test("wires PDF, geolocated regional mapping, probabilistic forecasting, live US
   assert.match(page, /DisclaimerPanel language=\{language\}/);
   assert.match(page, /helpTab === "disclaimer"/);
   assert.match(page, /className="skip-link"/);
+  assert.match(page, /externalBrowserLaunchUrl\("https:\/\/www\.sismica\.pro\/"\)/);
+  assert.match(page, /data-browser-handoff="true"/);
+  assert.doesNotMatch(page, /Open SEISMIC in browser"\)<\/a>.*target="_blank"/);
   assert.match(page, /Accessibility options/);
   assert.match(page, /seismic-accessibility/);
   assert.match(page, /aria-current=\{appMode === "alerts"/);
@@ -106,6 +110,11 @@ test("wires PDF, geolocated regional mapping, probabilistic forecasting, live US
   assert.match(pdf, /t\("STRUCTURAL RESPONSE REPORT"\)/);
   assert.match(pdf, /LANGUAGE_LOCALES/);
   assert.match(pdf, /Map data © OpenStreetMap contributors/);
+  assert.match(browserCompat, /intent:\/\//);
+  assert.match(browserCompat, /android\.intent\.action\.VIEW/);
+  assert.match(browserCompat, /android\.intent\.category\.BROWSABLE/);
+  assert.match(browserCompat, /x-safari-/);
+  assert.match(browserCompat, /S\.browser_fallback_url=/);
   assert.match(regional, /maplibre-gl/);
   assert.match(regional, /translateText, type Language/);
   assert.match(regional, /const MAP_STYLE: StyleSpecification/);
